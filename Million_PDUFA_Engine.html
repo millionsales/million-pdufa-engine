@@ -1180,9 +1180,12 @@ function setView(v) { APP.view=v; render(); }
 // ── INIT ──
 try {
   render();
+  // Fetch calendar first, then re-render with full data
+  fetchLiveCalendar().then(() => render());
   fetchLivePrices();
-  fetchLiveCalendar();
   setInterval(fetchLivePrices, 5*60*1000);
+  // Re-fetch calendar every 6 hours
+  setInterval(() => fetchLiveCalendar().then(() => render()), 6*60*60*1000);
 } catch(e) {
   console.error("Init error:", e);
   document.getElementById("app").innerHTML = `<div style="padding:40px;font-family:sans-serif;color:#b91c1c"><h2>Dashboard Error</h2><pre>${e.message}</pre><button onclick="location.reload()">Reload</button></div>`;
