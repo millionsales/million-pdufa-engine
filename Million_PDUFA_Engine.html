@@ -21,6 +21,7 @@ body{background:var(--bg);color:var(--text-1);font-family:'Sora',-apple-system,s
 ::-webkit-scrollbar{width:4px}::-webkit-scrollbar-track{background:transparent}::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px}
 @keyframes fadeIn{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:translateY(0)}}
 @keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
+@keyframes spin{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}
 
 .wrap{max-width:1280px;margin:0 auto;padding:28px 24px}
 
@@ -33,9 +34,13 @@ body{background:var(--bg);color:var(--text-1);font-family:'Sora',-apple-system,s
 .hdr-r{display:flex;gap:8px;align-items:center}
 .urg-badge{display:flex;align-items:center;gap:5px;padding:5px 10px;border-radius:6px;background:var(--red-bg);border:1px solid #fca5a5;font-size:10px;font-weight:600;color:var(--red)}
 .urg-dot{width:5px;height:5px;border-radius:50%;background:var(--red);animation:pulse 1.5s infinite}
-.btn-ai{padding:6px 13px;border-radius:7px;border:1px solid var(--border);cursor:pointer;font-size:11px;font-weight:600;background:var(--surface);color:var(--text-2);font-family:'Sora',sans-serif;transition:all .15s}
-.btn-ai:hover{border-color:var(--blue);color:var(--blue)}
-.btn-ai.on{background:var(--blue);color:#fff;border-color:var(--blue)}
+.live-badge{display:flex;align-items:center;gap:5px;padding:5px 10px;border-radius:6px;background:var(--green-bg);border:1px solid #6ee7b7;font-size:10px;font-weight:600;color:var(--green)}
+.live-dot{width:5px;height:5px;border-radius:50%;background:var(--green);animation:pulse 2s infinite}
+.btn{padding:6px 13px;border-radius:7px;border:1px solid var(--border);cursor:pointer;font-size:11px;font-weight:600;background:var(--surface);color:var(--text-2);font-family:'Sora',sans-serif;transition:all .15s}
+.btn:hover{border-color:var(--blue);color:var(--blue)}
+.btn.on{background:var(--blue);color:#fff;border-color:var(--blue)}
+.btn-refresh{background:var(--bg)}
+.btn-refresh:hover{background:var(--blue-bg)}
 
 /* Metrics */
 .metrics{display:grid;grid-template-columns:repeat(5,1fr);gap:10px;margin-bottom:16px}
@@ -43,6 +48,14 @@ body{background:var(--bg);color:var(--text-1);font-family:'Sora',-apple-system,s
 .mlabel{font-size:9px;font-weight:600;color:var(--text-3);text-transform:uppercase;letter-spacing:.08em;margin-bottom:6px}
 .mvalue{font-size:20px;font-weight:700;font-family:'JetBrains Mono',monospace;letter-spacing:-1px}
 .msub{font-size:10px;color:var(--text-3);margin-top:2px}
+
+/* Status bar */
+.status-bar{display:flex;gap:12px;margin-bottom:14px;padding:10px 14px;background:var(--surface);border:1px solid var(--border);border-radius:8px;font-size:10px;color:var(--text-3);align-items:center;flex-wrap:wrap}
+.status-item{display:flex;align-items:center;gap:5px}
+.status-dot{width:6px;height:6px;border-radius:50%}
+.status-dot.ok{background:var(--green)}
+.status-dot.err{background:var(--red)}
+.status-dot.loading{background:var(--amber);animation:pulse 1s infinite}
 
 /* AI Panel */
 .ai-panel{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:16px 18px;margin-bottom:14px;animation:fadeIn .2s ease}
@@ -61,11 +74,33 @@ body{background:var(--bg);color:var(--text-1);font-family:'Sora',-apple-system,s
 .ai-q:hover{border-color:var(--blue);color:var(--blue);background:var(--blue-bg)}
 .ai-resp{background:var(--bg);border:1px solid var(--border-light);border-radius:7px;padding:12px 14px;font-size:12px;color:var(--text-2);line-height:1.7;font-family:'JetBrains Mono',monospace;white-space:pre-wrap;max-height:260px;overflow-y:auto;margin-top:11px}
 
-/* Toolbar */
-.toolbar{display:flex;justify-content:space-between;align-items:center;padding-bottom:10px}
-.fg{display:flex;gap:2px;background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:3px}
-.fb{padding:4px 11px;font-size:11px;font-weight:500;border:none;border-radius:5px;cursor:pointer;background:transparent;color:var(--text-2);font-family:'Sora',sans-serif;transition:all .12s}
+/* Filters */
+.filters-wrap{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:14px 16px;margin-bottom:14px}
+.filters-title{font-size:9px;font-weight:700;color:var(--text-3);text-transform:uppercase;letter-spacing:.08em;margin-bottom:12px}
+.filter-row{display:flex;gap:16px;align-items:flex-end;flex-wrap:wrap}
+.filter-group{display:flex;flex-direction:column;gap:5px}
+.filter-label{font-size:9px;font-weight:600;color:var(--text-3);text-transform:uppercase;letter-spacing:.06em}
+.fg{display:flex;gap:2px;background:var(--bg);border:1px solid var(--border);border-radius:7px;padding:3px}
+.fb{padding:4px 10px;font-size:11px;font-weight:500;border:none;border-radius:5px;cursor:pointer;background:transparent;color:var(--text-2);font-family:'Sora',sans-serif;transition:all .12s}
 .fb.on{background:var(--blue);color:#fff;font-weight:600}
+.range-inputs{display:flex;gap:6px;align-items:center}
+.date-inp{padding:5px 9px;background:var(--bg);border:1px solid var(--border);border-radius:6px;color:var(--text-1);font-size:11px;font-family:'Sora',sans-serif;outline:none}
+.date-inp:focus{border-color:var(--blue)}
+.range-sep{font-size:10px;color:var(--text-3)}
+.score-row{display:flex;align-items:center;gap:10px}
+.score-slider{-webkit-appearance:none;width:140px;height:4px;border-radius:2px;background:var(--border);outline:none}
+.score-slider::-webkit-slider-thumb{-webkit-appearance:none;width:14px;height:14px;border-radius:50%;background:var(--blue);cursor:pointer}
+.score-val{font-size:11px;font-weight:700;color:var(--blue);font-family:'JetBrains Mono',monospace;min-width:32px}
+.filter-chips{display:flex;gap:5px;flex-wrap:wrap}
+.chip{padding:4px 10px;font-size:10px;font-weight:500;border:1px solid var(--border);border-radius:20px;cursor:pointer;background:var(--bg);color:var(--text-2);font-family:'Sora',sans-serif;transition:all .12s}
+.chip.on{background:var(--blue-bg);border-color:var(--blue);color:var(--blue);font-weight:600}
+.filter-actions{display:flex;gap:6px;margin-left:auto;align-items:flex-end}
+.btn-clear{padding:5px 12px;border-radius:6px;border:1px solid var(--border);background:transparent;color:var(--text-3);font-size:10px;cursor:pointer;font-family:'Sora',sans-serif;transition:all .12s}
+.btn-clear:hover{border-color:var(--red);color:var(--red)}
+
+/* Sort bar */
+.sort-bar{display:flex;justify-content:space-between;align-items:center;padding-bottom:10px}
+.result-count{font-size:11px;color:var(--text-3)}
 .sg{display:flex;gap:3px;align-items:center}
 .slbl{font-size:10px;color:var(--text-3);margin-right:3px;font-weight:500}
 .sb{padding:3px 9px;font-size:10px;font-weight:500;border:1px solid transparent;border-radius:5px;cursor:pointer;background:transparent;color:var(--text-3);font-family:'Sora',sans-serif;transition:all .12s}
@@ -73,15 +108,14 @@ body{background:var(--bg);color:var(--text-1);font-family:'Sora',-apple-system,s
 
 /* Table */
 .tbl{background:var(--surface);border:1px solid var(--border);border-radius:10px;overflow:hidden}
-.thead{display:grid;grid-template-columns:52px 96px 1fr 120px 72px 52px 106px 140px;padding:9px 20px;gap:8px;border-bottom:1px solid var(--border);background:var(--bg)}
+.thead{display:grid;grid-template-columns:52px 96px 1fr 130px 80px 52px 110px 150px;padding:9px 20px;gap:8px;border-bottom:1px solid var(--border);background:var(--bg)}
 .th{font-size:9px;font-weight:600;color:var(--text-3);text-transform:uppercase;letter-spacing:.08em}
 .th.r{text-align:right}
 .row{border-bottom:1px solid var(--border-light);transition:background .1s}
 .row:last-child{border-bottom:none}
-.row-main{display:grid;grid-template-columns:52px 96px 1fr 120px 72px 52px 106px 140px;padding:13px 20px;gap:8px;cursor:pointer;align-items:center}
 .row:hover .row-main{background:var(--bg)}
 .row.exp .row-main{background:var(--bg)}
-
+.row-main{display:grid;grid-template-columns:52px 96px 1fr 130px 80px 52px 110px 150px;padding:13px 20px;gap:8px;cursor:pointer;align-items:center}
 .tkr{font-size:14px;font-weight:700;color:var(--text-1);font-family:'JetBrains Mono',monospace;letter-spacing:-.3px}
 .stag{display:inline-block;font-size:9px;font-weight:600;letter-spacing:.05em;text-transform:uppercase;margin-top:2px;padding:1px 6px;border-radius:3px}
 .dname{font-size:12px;font-weight:500;color:var(--text-1)}
@@ -95,6 +129,7 @@ body{background:var(--bg);color:var(--text-1);font-family:'Sora',-apple-system,s
 .lim-v{font-size:11px;font-family:'JetBrains Mono',monospace;text-align:right;color:var(--purple)}
 .no-p{font-size:11px;text-align:right;color:var(--text-3)}
 .sig{font-size:9px;font-weight:700;padding:3px 8px;border-radius:4px;letter-spacing:.04em;display:inline-block;text-transform:uppercase}
+.price-live{font-size:9px;color:var(--green);font-weight:600;margin-left:4px}
 
 /* Detail */
 .detail{padding:0 20px 18px;animation:fadeIn .2s ease}
@@ -105,13 +140,24 @@ body{background:var(--bg);color:var(--text-1);font-family:'Sora',-apple-system,s
 .dgrid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:18px}
 .dst{font-size:9px;font-weight:700;color:var(--text-3);text-transform:uppercase;letter-spacing:.08em;margin-bottom:8px;padding-bottom:5px;border-bottom:1px solid var(--border)}
 .dr{display:flex;gap:6px;margin-bottom:4px}
-.dl{font-size:11px;color:var(--text-3);min-width:76px;flex-shrink:0}
+.dl{font-size:11px;color:var(--text-3);min-width:80px;flex-shrink:0}
 .dv{font-size:11px;color:var(--text-1);line-height:1.4}
 .dv-r{color:var(--red)}
+.dlinks{display:flex;gap:6px;margin-top:8px;flex-wrap:wrap}
+.dlink{font-size:10px;padding:3px 9px;border-radius:4px;border:1px solid var(--border);color:var(--blue);text-decoration:none;background:var(--bg);transition:all .12s}
+.dlink:hover{background:var(--blue-bg);border-color:var(--blue)}
 .dnotes{margin-top:12px;padding:9px 13px;background:var(--surface);border-radius:6px;border:1px solid var(--border);font-size:11px;color:var(--text-2);line-height:1.6}
 .dnotes strong{color:var(--text-1)}
 .desigs{display:flex;gap:4px;flex-wrap:wrap;margin-top:6px}
 .desig{font-size:9px;font-weight:600;padding:2px 7px;border-radius:3px;background:var(--blue-bg);color:var(--blue);letter-spacing:.03em}
+
+/* Price target bar */
+.pt-bar{margin-top:10px;padding:10px 13px;background:var(--surface);border-radius:6px;border:1px solid var(--border)}
+.pt-title{font-size:9px;font-weight:600;color:var(--text-3);text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px}
+.pt-track{position:relative;height:6px;background:var(--border);border-radius:3px;margin:0 8px}
+.pt-fill{position:absolute;left:0;top:0;height:100%;border-radius:3px;background:var(--blue)}
+.pt-marker{position:absolute;top:-4px;width:14px;height:14px;border-radius:50%;border:2px solid var(--surface);transform:translateX(-50%)}
+.pt-labels{display:flex;justify-content:space-between;margin-top:6px;font-size:9px;color:var(--text-3);font-family:'JetBrains Mono',monospace}
 
 /* Compound */
 .cbar{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:16px 20px;margin-top:14px}
@@ -122,47 +168,61 @@ body{background:var(--bg);color:var(--text-1);font-family:'Sora',-apple-system,s
 .ccyc{font-size:9px;color:var(--text-3);margin-bottom:3px;font-weight:600;text-transform:uppercase}
 .cval{font-size:14px;font-weight:700;font-family:'JetBrains Mono',monospace;letter-spacing:-.5px}
 
+/* Empty state */
+.empty{padding:48px;text-align:center;color:var(--text-3)}
+.empty-icon{font-size:32px;margin-bottom:12px}
+.empty-text{font-size:13px;font-weight:500}
+.empty-sub{font-size:11px;margin-top:4px}
+
 .footer{margin-top:16px;font-size:10px;color:var(--text-3);text-align:center}
 
-@media(max-width:1000px){.metrics{grid-template-columns:repeat(3,1fr)}}
-@media(max-width:800px){
+@media(max-width:1100px){.metrics{grid-template-columns:repeat(3,1fr)}}
+@media(max-width:900px){
   .thead,.row-main{grid-template-columns:44px 80px 1fr 90px 60px 110px}
   .thead>.th:nth-child(6),.row-main>div:nth-child(6){display:none}
   .thead>.th:nth-child(5),.row-main>div:nth-child(5){display:none}
 }
-@media(max-width:580px){
+@media(max-width:600px){
   .metrics{grid-template-columns:1fr 1fr}
   .thead{display:none}
   .row-main{grid-template-columns:44px 1fr 90px 100px;padding:11px 14px}
   .row-main>div:nth-child(3){display:none}
   .dgrid{grid-template-columns:1fr}
   .cgrid{grid-template-columns:repeat(3,1fr)}
+  .filter-row{flex-direction:column}
 }
 </style>
 </head>
 <body>
 <div class="wrap" id="app"></div>
 <script>
-const CATALYSTS=[
-  {id:"axsm",ticker:"AXSM",company:"Axsome Therapeutics",drug:"AXS-05 (Auvelity)",indication:"Alzheimer's Disease Agitation",pdufaDate:"2026-04-30",probability:78,status:"approved",designation:["Breakthrough","Priority Review"],tier:1,position:{shares:6,avgPrice:182.67,currentPrice:217.38},stopLoss:148.0,analystLow:198.82,analystHigh:260,analystConsensus:223.99,marketCap:"$9.5B",cash:"$325M",reviewType:"Priority",pathway:"sNDA",trialName:"ADVANCE-1, ACCORD-1/2",primaryEndpoint:"Met (3 of 4 Ph3)",safetyProfile:"Clean — no falls, no cognitive decline",competitorContext:"Rexulti only other approved. Non-antipsychotic mechanism.",keyRisk:"ADVANCE-2 missed stat sig. May 4 earnings EPS risk.",notes:"Approved April 30. Modest 2% move = priced in. Hold through May 4 earnings with 10% trailing stop."},
-  {id:"vrdn",ticker:"VRDN",company:"Viridian Therapeutics",drug:"Veligrotug (IV)",indication:"Thyroid Eye Disease",pdufaDate:"2026-06-30",probability:75,status:"active",designation:["Breakthrough","Priority Review"],tier:1,position:{shares:50,avgPrice:15.10,currentPrice:16.61},stopLoss:10.0,analystLow:33,analystHigh:45,analystConsensus:39,marketCap:"$1.1B",cash:"$875M",reviewType:"Priority",pathway:"BLA",trialName:"THRIVE, THRIVE-2",primaryEndpoint:"Met all primary & secondary endpoints",safetyProfile:"Well-tolerated. FcRn inhibitor class.",competitorContext:"Tepezza is SOC. First to show diplopia resolution in chronic TED.",keyRisk:"REVEAL-1 elegrobart overhang on sentiment.",notes:"Contrarian entry post-REVEAL-1. Veligrotug data is strong. Analyst targets $33-$45."},
-  {id:"vera",ticker:"VERA",company:"Vera Therapeutics",drug:"Atacicept",indication:"IgA Nephropathy",pdufaDate:"2026-07-07",probability:75,status:"active",designation:["Breakthrough","Priority Review","Accelerated Approval"],tier:1,position:{shares:10,avgPrice:43.32,currentPrice:36.19},stopLoss:34.0,analystLow:56,analystHigh:82,analystConsensus:76,marketCap:"$2.5B",cash:"$714.6M",reviewType:"Priority",pathway:"BLA (Accelerated)",trialName:"ORIGIN Phase 3",primaryEndpoint:"Met: 46% proteinuria reduction, p<0.0001",safetyProfile:"Favorable. No major safety signals.",competitorContext:"VOYXACT approved. Atacicept dual BAFF/APRIL differentiated.",keyRisk:"Surrogate endpoint debate. Confirmatory trial required.",notes:"Tranche 1 of 3. NEJM-published. Deploy tranches 2 & 3 by early May."},
-  {id:"rvmd",ticker:"RVMD",company:"Revolution Medicines",drug:"Daraxonrasib",indication:"KRAS G12C Pancreatic Cancer",pdufaDate:"2027-01-15",probability:82,status:"limit_order",designation:["Breakthrough"],tier:3,position:{shares:0,avgPrice:0,currentPrice:141.81,limitPrice:112.0},stopLoss:88.0,analystLow:140,analystHigh:170,analystConsensus:155,marketCap:"$28.4B",cash:"$2.03B",reviewType:"TBD",pathway:"NDA",trialName:"RASolute 302 Phase 3",primaryEndpoint:"Met: mOS 13.2 vs 6.7mo, HR 0.40",safetyProfile:"Manageable. RAS(ON) class.",competitorContext:"First multi-selective RAS(ON) inhibitor.",keyRisk:"Post-gap euphoria. Equity offering likely.",notes:"GTC limit 5 shares @ $112. Waiting for pullback. NDA filing expected Q3 2026."},
-  {id:"grce",ticker:"GRCE",company:"Grace Therapeutics",drug:"GTx-104 (IV Nimodipine)",indication:"Aneurysmal SAH",pdufaDate:"2026-04-23",probability:67,status:"expired",designation:["Orphan Drug","505(b)(2)"],tier:2,position:{shares:0,avgPrice:0,currentPrice:2.34,limitPrice:3.85},stopLoss:2.50,analystLow:null,analystHigh:12,analystConsensus:12,marketCap:"$72M",cash:"$18.7M",reviewType:"Standard",pathway:"NDA 505(b)(2)",trialName:"STRIVE-ON Phase 3",primaryEndpoint:"Safety/PK bridging",safetyProfile:"Clean. Known nimodipine profile.",competitorContext:"No IV nimodipine exists.",keyRisk:"Limit at $3.85 did not fill.",notes:"Stock ran past $4.64 chase threshold before PDUFA."},
-  {id:"argx",ticker:"ARGX",company:"Argenx",drug:"VYVGART",indication:"Seronegative Myasthenia Gravis",pdufaDate:"2026-05-10",probability:80,status:"watchlist",designation:["Label Expansion"],tier:2,position:null,stopLoss:null,analystLow:null,analystHigh:null,analystConsensus:null,marketCap:"$36B",cash:">$3B",reviewType:"Standard",pathway:"sBLA",trialName:"Label expansion study",primaryEndpoint:"Efficacy in seronegative gMG",safetyProfile:"Established globally",competitorContext:"VYVGART is market leader.",keyRisk:"Seronegative population smaller.",notes:"Low binary risk. 5-10% move expected. Large-cap capital parking."},
-  {id:"biib",ticker:"BIIB",company:"Biogen / Eisai",drug:"LEQEMBI IQLIK",indication:"Alzheimer's SubQ Autoinjector",pdufaDate:"2026-05-24",probability:90,status:"watchlist",designation:["Device/Formulation"],tier:2,position:null,stopLoss:null,analystLow:null,analystHigh:null,analystConsensus:null,marketCap:"$25B",cash:">$5B",reviewType:"Standard",pathway:"sBLA",trialName:"PK bridging studies",primaryEndpoint:"Bioequivalence to IV",safetyProfile:"Established",competitorContext:"Kisunla is competitor. SubQ removes infusion barrier.",keyRisk:"Device delivery consistency.",notes:"90% probability. Device change only. Massive commercial impact."},
-  {id:"cing",ticker:"CING",company:"Cingulate",drug:"CTx-1301",indication:"ADHD",pdufaDate:"2026-05-31",probability:70,status:"watchlist",designation:["505(b)(2)"],tier:2,position:null,stopLoss:null,analystLow:null,analystHigh:null,analystConsensus:null,marketCap:"~$35M",cash:"~$8M",reviewType:"Standard",pathway:"NDA 505(b)(2)",trialName:"Adult & Pediatric Phase 3",primaryEndpoint:"Met ADHD-RS-5, CGI-I",safetyProfile:"No serious TEAEs.",competitorContext:"$20B+ ADHD market.",keyRisk:"CMC triple-bead system. Nano-cap.",notes:"⚠️ Max $300-500 position. Extreme liquidity risk."},
-  {id:"lnth",ticker:"LNTH",company:"Lantheus Holdings",drug:"LNTH-2501",indication:"NET PET Imaging",pdufaDate:"2026-06-29",probability:75,status:"watchlist",designation:["Standard Review"],tier:2,position:null,stopLoss:null,analystLow:null,analystHigh:null,analystConsensus:null,marketCap:"$5.5B",cash:">$400M",reviewType:"Standard (ext. 3mo)",pathway:"NDA",trialName:"Diagnostic imaging studies",primaryEndpoint:"SSTR+ NET localization",safetyProfile:"Diagnostic agent",competitorContext:"Expands Lantheus radiopharm franchise.",keyRisk:"3-month extension for manufacturing.",notes:"Proven commercial company. Lower binary risk."},
-  {id:"nuvl",ticker:"NUVL",company:"Nuvalent",drug:"Zidesamtinib",indication:"ROS1+ NSCLC",pdufaDate:"2026-09-18",probability:80,status:"pipeline",designation:["Breakthrough","Orphan Drug"],tier:1,position:null,stopLoss:null,analystLow:null,analystHigh:null,analystConsensus:null,marketCap:"$8.5B",cash:"$1.8B",reviewType:"Standard",pathway:"NDA",trialName:"ARROS-1 (registrational)",primaryEndpoint:"Deep durable responses post-TKI",safetyProfile:"Brain-penetrant. Manageable.",competitorContext:"Activity post repotrectinib.",keyRisk:"Small patient population.",notes:"NEXT TIER 1 ENTRY. Window July/August. Deploy VRDN proceeds."},
-  {id:"bpmc",ticker:"BPMC",company:"PharmaEssentia",drug:"Besremi",indication:"Essential Thrombocythemia",pdufaDate:"2026-08-30",probability:70,status:"pipeline",designation:["Label Expansion"],tier:2,position:null,stopLoss:null,analystLow:null,analystHigh:null,analystConsensus:null,marketCap:"$3B",cash:">$200M",reviewType:"Standard",pathway:"sNDA",trialName:"ET expansion",primaryEndpoint:"Efficacy in ET",safetyProfile:"Established (PV-approved)",competitorContext:"Hydroxyurea is SOC.",keyRisk:"ET market smaller than PV.",notes:"Label expansion. Conservative play."},
-  {id:"axsm12",ticker:"AXSM",company:"Axsome Therapeutics",drug:"AXS-12 (Reboxetine)",indication:"Narcolepsy (Cataplexy)",pdufaDate:"2026-12-15",probability:75,status:"pipeline",designation:["Orphan Drug"],tier:2,position:null,stopLoss:null,analystLow:null,analystHigh:null,analystConsensus:null,marketCap:"$9.5B",cash:"$325M",reviewType:"Standard",pathway:"NDA",trialName:"SYMPHONY + ENCORE Phase 3",primaryEndpoint:"Positive on cataplexy reduction",safetyProfile:"Globally characterized.",competitorContext:"Xyrem/Xywav dominate.",keyRisk:"Standard review timeline.",notes:"Second AXSM PDUFA trade. Entry window Q3 2026."}
+// ── PROXY & CONFIG ──
+const PROXY = "http://167.172.134.28:3000";
+const TODAY = new Date("2026-05-10");
+
+// ── STATIC CATALYST DATA ──
+// Prices update live from proxy. All other fields are research-based.
+const CATALYSTS = [
+  {id:"axsm",ticker:"AXSM",company:"Axsome Therapeutics",drug:"AXS-05 (Auvelity)",indication:"Alzheimer's Disease Agitation",pdufaDate:"2026-04-30",probability:78,status:"approved",designation:["Breakthrough","Priority Review"],tier:1,position:{shares:6,avgPrice:182.67,currentPrice:186.55},stopLoss:148.0,analystLow:198.82,analystHigh:260,analystConsensus:223.99,marketCap:"$9.5B",cash:"$325M",reviewType:"Priority",pathway:"sNDA",trialName:"ADVANCE-1, ACCORD-1/2",nctId:"NCT03226522",primaryEndpoint:"Met (3 of 4 Ph3)",safetyProfile:"Clean — no falls, no cognitive decline",competitorContext:"Rexulti only other approved. Non-antipsychotic mechanism.",adcomDate:null,adcomVote:null,historicalApprovalRate:"91% (label expansions, Priority Review)",keyRisk:"ADVANCE-2 missed stat sig. May 4 earnings EPS risk.",notes:"Approved April 30. Modest 2% move = priced in. Hold through May 4 earnings with 10% trailing stop."},
+  {id:"vrdn",ticker:"VRDN",company:"Viridian Therapeutics",drug:"Veligrotug (IV)",indication:"Thyroid Eye Disease",pdufaDate:"2026-06-30",probability:75,status:"active",designation:["Breakthrough","Priority Review"],tier:1,position:{shares:50,avgPrice:15.10,currentPrice:15.12},stopLoss:10.0,analystLow:33,analystHigh:45,analystConsensus:39,marketCap:"$1.1B",cash:"$875M",reviewType:"Priority",pathway:"BLA",trialName:"THRIVE, THRIVE-2",nctId:"NCT04583735",primaryEndpoint:"Met all primary & secondary endpoints",safetyProfile:"Well-tolerated. FcRn inhibitor class.",competitorContext:"Tepezza is SOC. First to show diplopia resolution in chronic TED.",adcomDate:null,adcomVote:null,historicalApprovalRate:"88% (Breakthrough Therapy designation)",keyRisk:"REVEAL-1 elegrobart overhang on sentiment.",notes:"Contrarian entry post-REVEAL-1. Veligrotug data is strong. Analyst targets $33-$45."},
+  {id:"vera",ticker:"VERA",company:"Vera Therapeutics",drug:"Atacicept",indication:"IgA Nephropathy",pdufaDate:"2026-07-07",probability:75,status:"active",designation:["Breakthrough","Priority Review","Accelerated Approval"],tier:1,position:{shares:10,avgPrice:43.32,currentPrice:43.65},stopLoss:34.0,analystLow:56,analystHigh:82,analystConsensus:76,marketCap:"$2.5B",cash:"$714.6M",reviewType:"Priority",pathway:"BLA (Accelerated)",trialName:"ORIGIN Phase 3",nctId:"NCT04573478",primaryEndpoint:"Met: 46% proteinuria reduction, p<0.0001",safetyProfile:"Favorable. No major safety signals.",competitorContext:"VOYXACT approved. Atacicept dual BAFF/APRIL differentiated.",adcomDate:null,adcomVote:null,historicalApprovalRate:"85% (Breakthrough + Priority Review)",keyRisk:"Surrogate endpoint debate. Confirmatory trial required.",notes:"Tranche 1 of 3. NEJM-published. Deploy tranches 2 & 3 now."},
+  {id:"rvmd",ticker:"RVMD",company:"Revolution Medicines",drug:"Daraxonrasib",indication:"KRAS G12C Pancreatic Cancer",pdufaDate:"2027-01-15",probability:82,status:"limit_order",designation:["Breakthrough"],tier:3,position:{shares:0,avgPrice:0,currentPrice:144.38,limitPrice:112.0},stopLoss:88.0,analystLow:140,analystHigh:170,analystConsensus:155,marketCap:"$28.4B",cash:"$2.03B",reviewType:"TBD",pathway:"NDA",trialName:"RASolute 302 Phase 3",nctId:"NCT05379985",primaryEndpoint:"Met: mOS 13.2 vs 6.7mo, HR 0.40",safetyProfile:"Manageable. RAS(ON) class.",competitorContext:"First multi-selective RAS(ON) inhibitor.",adcomDate:null,adcomVote:null,historicalApprovalRate:"85% (Breakthrough + strong Phase 3)",keyRisk:"Post-gap euphoria. Equity offering likely.",notes:"GTC limit 5 shares @ $112. Waiting for pullback."},
+  {id:"grce",ticker:"GRCE",company:"Grace Therapeutics",drug:"GTx-104 (IV Nimodipine)",indication:"Aneurysmal SAH",pdufaDate:"2026-04-23",probability:67,status:"expired",designation:["Orphan Drug","505(b)(2)"],tier:2,position:{shares:0,avgPrice:0,currentPrice:4.65,limitPrice:3.85},stopLoss:2.50,analystLow:null,analystHigh:12,analystConsensus:12,marketCap:"$72M",cash:"$18.7M",reviewType:"Standard",pathway:"NDA 505(b)(2)",trialName:"STRIVE-ON Phase 3",nctId:"NCT04547088",primaryEndpoint:"Safety/PK bridging",safetyProfile:"Clean. Known nimodipine profile.",competitorContext:"No IV nimodipine exists.",adcomDate:null,adcomVote:null,historicalApprovalRate:"87% (505(b)(2) pathway)",keyRisk:"CRL issued. Stock dropped to $2.34.",notes:"CRL received. Stop loss triggered at $2.50. Loss ~$765. Closed."},
+  {id:"argx",ticker:"ARGX",company:"Argenx",drug:"VYVGART",indication:"Seronegative Myasthenia Gravis",pdufaDate:"2026-05-10",probability:80,status:"watchlist",designation:["Label Expansion"],tier:2,position:null,stopLoss:null,analystLow:null,analystHigh:null,analystConsensus:null,marketCap:"$36B",cash:">$3B",reviewType:"Standard",pathway:"sBLA",trialName:"Label expansion study",nctId:"NCT04820608",primaryEndpoint:"Efficacy in seronegative gMG",safetyProfile:"Established globally",competitorContext:"VYVGART is market leader.",adcomDate:null,adcomVote:null,historicalApprovalRate:"91% (label expansions)",keyRisk:"Seronegative population smaller.",notes:"Low binary risk. 5-10% move expected. PDUFA today."},
+  {id:"biib",ticker:"BIIB",company:"Biogen / Eisai",drug:"LEQEMBI IQLIK",indication:"Alzheimer's SubQ Autoinjector",pdufaDate:"2026-05-24",probability:90,status:"watchlist",designation:["Device/Formulation"],tier:2,position:null,stopLoss:null,analystLow:null,analystHigh:null,analystConsensus:null,marketCap:"$25B",cash:">$5B",reviewType:"Standard",pathway:"sBLA",trialName:"PK bridging studies",nctId:null,primaryEndpoint:"Bioequivalence to IV",safetyProfile:"Established",competitorContext:"Kisunla is competitor. SubQ removes infusion barrier.",adcomDate:null,adcomVote:null,historicalApprovalRate:"95% (device/formulation changes)",keyRisk:"Device delivery consistency.",notes:"90% probability. Device change only. Massive commercial impact."},
+  {id:"cing",ticker:"CING",company:"Cingulate",drug:"CTx-1301",indication:"ADHD",pdufaDate:"2026-05-31",probability:70,status:"watchlist",designation:["505(b)(2)"],tier:2,position:null,stopLoss:null,analystLow:null,analystHigh:null,analystConsensus:null,marketCap:"~$35M",cash:"~$8M",reviewType:"Standard",pathway:"NDA 505(b)(2)",trialName:"Adult & Pediatric Phase 3",nctId:"NCT04410952",primaryEndpoint:"Met ADHD-RS-5, CGI-I",safetyProfile:"No serious TEAEs.",competitorContext:"$20B+ ADHD market.",adcomDate:null,adcomVote:null,historicalApprovalRate:"87% (505(b)(2) pathway)",keyRisk:"CMC triple-bead system. Nano-cap.",notes:"⚠️ Max $300-500. Extreme liquidity risk."},
+  {id:"lnth",ticker:"LNTH",company:"Lantheus Holdings",drug:"LNTH-2501",indication:"NET PET Imaging",pdufaDate:"2026-06-29",probability:75,status:"watchlist",designation:["Standard Review"],tier:2,position:null,stopLoss:null,analystLow:null,analystHigh:null,analystConsensus:null,marketCap:"$5.5B",cash:">$400M",reviewType:"Standard (ext. 3mo)",pathway:"NDA",trialName:"Diagnostic imaging studies",nctId:null,primaryEndpoint:"SSTR+ NET localization",safetyProfile:"Diagnostic agent",competitorContext:"Expands Lantheus radiopharm franchise.",adcomDate:null,adcomVote:null,historicalApprovalRate:"82% (diagnostic agents)",keyRisk:"3-month extension for manufacturing.",notes:"Proven commercial company. Lower binary risk."},
+  {id:"nuvl",ticker:"NUVL",company:"Nuvalent",drug:"Zidesamtinib",indication:"ROS1+ NSCLC",pdufaDate:"2026-09-18",probability:80,status:"pipeline",designation:["Breakthrough","Orphan Drug"],tier:1,position:null,stopLoss:null,analystLow:null,analystHigh:null,analystConsensus:null,marketCap:"$8.5B",cash:"$1.8B",reviewType:"Standard",pathway:"NDA",trialName:"ARROS-1 (registrational)",nctId:"NCT04923945",primaryEndpoint:"Deep durable responses post-TKI",safetyProfile:"Brain-penetrant. Manageable.",competitorContext:"Activity post repotrectinib.",adcomDate:null,adcomVote:null,historicalApprovalRate:"88% (Breakthrough + Orphan)",keyRisk:"Small patient population.",notes:"NEXT TIER 1 ENTRY. Window July/August. Deploy VRDN proceeds."},
+  {id:"bpmc",ticker:"BPMC",company:"PharmaEssentia",drug:"Besremi",indication:"Essential Thrombocythemia",pdufaDate:"2026-08-30",probability:70,status:"pipeline",designation:["Label Expansion"],tier:2,position:null,stopLoss:null,analystLow:null,analystHigh:null,analystConsensus:null,marketCap:"$3B",cash:">$200M",reviewType:"Standard",pathway:"sNDA",trialName:"ET expansion",nctId:null,primaryEndpoint:"Efficacy in ET",safetyProfile:"Established (PV-approved)",competitorContext:"Hydroxyurea is SOC.",adcomDate:null,adcomVote:null,historicalApprovalRate:"91% (label expansions)",keyRisk:"ET market smaller than PV.",notes:"Label expansion. Conservative play."},
+  {id:"axsm12",ticker:"AXSM",company:"Axsome Therapeutics",drug:"AXS-12 (Reboxetine)",indication:"Narcolepsy (Cataplexy)",pdufaDate:"2026-12-15",probability:75,status:"pipeline",designation:["Orphan Drug"],tier:2,position:null,stopLoss:null,analystLow:null,analystHigh:null,analystConsensus:null,marketCap:"$9.5B",cash:"$325M",reviewType:"Standard",pathway:"NDA",trialName:"SYMPHONY + ENCORE Phase 3",nctId:"NCT04091776",primaryEndpoint:"Positive on cataplexy reduction",safetyProfile:"Globally characterized.",competitorContext:"Xyrem/Xywav dominate.",adcomDate:null,adcomVote:null,historicalApprovalRate:"80% (Orphan Drug, standard review)",keyRisk:"Standard review timeline.",notes:"Second AXSM PDUFA trade. Entry window Q3 2026."}
 ];
 
-const TODAY=new Date("2026-05-08");
-const gd=d=>Math.ceil((new Date(d+"T00:00:00")-TODAY)/864e5);
-const fmt=n=>n==null?"—":"$"+n.toLocaleString("en-US",{minimumFractionDigits:2,maximumFractionDigits:2});
+// ── HELPERS ──
+const gd = d => Math.ceil((new Date(d+"T00:00:00")-TODAY)/864e5);
+const fmt = n => n==null?"—":"$"+n.toLocaleString("en-US",{minimumFractionDigits:2,maximumFractionDigits:2});
+const fmtDate = d => new Date(d+"T12:00:00").toLocaleDateString("en-US",{month:"short",day:"numeric",year:"numeric"});
 
-const STS={
+const STS = {
   approved:{l:"Approved",c:"var(--green)",bg:"var(--green-bg)"},
   active:{l:"Active",c:"var(--blue)",bg:"var(--blue-bg)"},
   limit_order:{l:"Limit Order",c:"var(--purple)",bg:"var(--purple-bg)"},
@@ -171,39 +231,40 @@ const STS={
   expired:{l:"Expired",c:"var(--text-3)",bg:"var(--bg)"},
   rejected:{l:"CRL",c:"var(--red)",bg:"var(--red-bg)"}
 };
-const TC={1:"var(--blue)",2:"var(--text-2)",3:"var(--text-3)"};
+const TC = {1:"var(--blue)",2:"var(--text-2)",3:"var(--text-3)"};
 
-function sc(item){
-  let s=item.probability;
-  if(item.designation.includes("Breakthrough"))s+=5;
-  if(item.designation.includes("Priority Review"))s+=3;
-  if(item.designation.includes("Orphan Drug"))s+=2;
-  if(item.designation.includes("Accelerated Approval"))s+=2;
-  if(["505(b)(2)","sBLA","sNDA"].includes(item.pathway))s+=3;
-  if(item.primaryEndpoint?.toLowerCase().includes("met"))s+=3;
-  if(item.safetyProfile?.toLowerCase().includes("clean")||item.safetyProfile?.toLowerCase().includes("well-tolerated"))s+=2;
-  if(item.keyRisk?.toLowerCase().includes("manufacturing")||item.keyRisk?.toLowerCase().includes("cmc"))s-=5;
+function sc(item) {
+  let s = item.probability;
+  if(item.designation.includes("Breakthrough")) s+=5;
+  if(item.designation.includes("Priority Review")) s+=3;
+  if(item.designation.includes("Orphan Drug")) s+=2;
+  if(item.designation.includes("Accelerated Approval")) s+=2;
+  if(["505(b)(2)","sBLA","sNDA"].includes(item.pathway)) s+=3;
+  if(item.primaryEndpoint?.toLowerCase().includes("met")) s+=3;
+  if(item.safetyProfile?.toLowerCase().includes("clean")||item.safetyProfile?.toLowerCase().includes("well-tolerated")) s+=2;
+  if(item.keyRisk?.toLowerCase().includes("manufacturing")||item.keyRisk?.toLowerCase().includes("cmc")) s-=5;
+  if(item.adcomVote && item.adcomVote.includes("positive")) s+=8;
   return Math.min(99,Math.max(10,s));
 }
 
-function rc(item){
-  const d=gd(item.pdufaDate),rs=sc(item),hp=item.position?.shares>0;
-  if(item.status==="approved")return{a:"Manage",c:"var(--green)",bg:"var(--green-bg)",t:"Approved. Tighten stop to trailing 10%. Review at next earnings."};
-  if(item.status==="expired")return{a:"Closed",c:"var(--text-3)",bg:"var(--bg)",t:"Position expired or resolved."};
-  if(d<0)return{a:"Resolved",c:"var(--text-3)",bg:"var(--bg)",t:"PDUFA date has passed."};
-  if(hp&&d<=7)return{a:"Decision Week",c:"var(--red)",bg:"var(--red-bg)",t:"PDUFA imminent. Verify stop loss active. Hold through or sell run-up by Tuesday."};
-  if(hp&&d<=21)return{a:"Monitor",c:"var(--amber)",bg:"var(--amber-bg)",t:"Approaching PDUFA. Watch for early FDA action and prediction market shifts."};
-  if(hp)return{a:"Hold",c:"var(--blue)",bg:"var(--blue-bg)",t:"Position active. Stop in place. Next review at 3-week mark."};
-  if(item.status==="limit_order")return{a:"Waiting",c:"var(--purple)",bg:"var(--purple-bg)",t:"Limit order open. "+(d<14?"Consider raising — runway closing.":"Patience.")};
-  if(rs>=78&&d>=28&&d<=84)return{a:"Entry Window",c:"var(--green)",bg:"var(--green-bg)",t:`High conviction (${rs}/100). Ideal 4-12 week window. Scale in.`};
-  if(rs>=70&&d>=14&&d<=84)return{a:"Evaluate",c:"var(--amber)",bg:"var(--amber-bg)",t:`Moderate conviction (${rs}/100). Research before entry.`};
-  if(d>84)return{a:"Too Early",c:"var(--text-3)",bg:"var(--bg)",t:`${d} days to PDUFA. Entry window opens at ~12 weeks out.`};
-  if(d<14&&!hp)return{a:"Late Entry",c:"var(--red)",bg:"var(--red-bg)",t:"Entry window closing. Most upside priced in."};
+function rc(item) {
+  const d=gd(item.pdufaDate), rs=sc(item), hp=item.position?.shares>0;
+  if(item.status==="approved") return{a:"Manage",c:"var(--green)",bg:"var(--green-bg)",t:"Approved. Tighten stop to trailing 10%. Review at next earnings."};
+  if(item.status==="expired"||item.status==="rejected") return{a:"Closed",c:"var(--text-3)",bg:"var(--bg)",t:"Position expired or resolved."};
+  if(d<0) return{a:"Resolved",c:"var(--text-3)",bg:"var(--bg)",t:"PDUFA date has passed."};
+  if(hp&&d<=7) return{a:"Decision Week",c:"var(--red)",bg:"var(--red-bg)",t:"PDUFA imminent. Verify stop loss active. Hold through or sell run-up by Tuesday."};
+  if(hp&&d<=21) return{a:"Monitor",c:"var(--amber)",bg:"var(--amber-bg)",t:"Approaching PDUFA. Watch for early FDA action and prediction market shifts."};
+  if(hp) return{a:"Hold",c:"var(--blue)",bg:"var(--blue-bg)",t:"Position active. Stop in place. Next review at 3-week mark."};
+  if(item.status==="limit_order") return{a:"Waiting",c:"var(--purple)",bg:"var(--purple-bg)",t:"Limit order open. "+(d<14?"Consider raising — runway closing.":"Patience.")};
+  if(rs>=78&&d>=28&&d<=84) return{a:"Entry Window",c:"var(--green)",bg:"var(--green-bg)",t:`High conviction (${rs}/100). Ideal 4-12 week window. Scale in.`};
+  if(rs>=70&&d>=14&&d<=84) return{a:"Evaluate",c:"var(--amber)",bg:"var(--amber-bg)",t:`Moderate conviction (${rs}/100). Research before entry.`};
+  if(d>84) return{a:"Too Early",c:"var(--text-3)",bg:"var(--bg)",t:`${d} days to PDUFA. Entry window opens at ~12 weeks out.`};
+  if(d<14&&!hp) return{a:"Late Entry",c:"var(--red)",bg:"var(--red-bg)",t:"Entry window closing. Most upside priced in."};
   return{a:"Watch",c:"var(--text-2)",bg:"var(--bg)",t:"On watchlist. No immediate action."};
 }
 
-function ring(s,sz=44){
-  const r=(sz-6)/2,c=2*Math.PI*r,off=c-(s/100)*c;
+function ring(s,sz=44) {
+  const r=(sz-6)/2, c=2*Math.PI*r, off=c-(s/100)*c;
   const col=s>=85?"#0d7a4e":s>=75?"#1a56db":s>=65?"#92400e":"#b91c1c";
   return`<svg width="${sz}" height="${sz}" style="transform:rotate(-90deg)">
     <circle cx="${sz/2}" cy="${sz/2}" r="${r}" fill="none" stroke="#e8eaed" stroke-width="3.5"/>
@@ -215,49 +276,151 @@ function ring(s,sz=44){
   </svg>`;
 }
 
-let S={filter:"all",sort:"date",exp:null,ai:false,aiQ:"",aiR:"",aiL:false};
+function ptBar(item) {
+  if(!item.position?.shares||!item.analystConsensus) return "";
+  const cur=item.position.currentPrice, lo=item.stopLoss||0, hi=item.analystHigh||cur*1.5;
+  const range=hi-lo;
+  const curPct=Math.max(0,Math.min(100,((cur-lo)/range)*100));
+  const consPct=Math.max(0,Math.min(100,((item.analystConsensus-lo)/range)*100));
+  return`<div class="pt-bar">
+    <div class="pt-title">Price Target Range</div>
+    <div class="pt-track">
+      <div class="pt-fill" style="width:${curPct}%;background:linear-gradient(90deg,var(--red-bg),var(--blue))"></div>
+      <div class="pt-marker" style="left:${curPct}%;background:var(--blue)"></div>
+      <div class="pt-marker" style="left:${consPct}%;background:var(--green)"></div>
+    </div>
+    <div class="pt-labels">
+      <span>Stop ${fmt(lo)}</span>
+      <span style="color:var(--blue)">Now ${fmt(cur)}</span>
+      <span style="color:var(--green)">PT ${fmt(item.analystConsensus)}</span>
+      <span>High ${fmt(item.analystHigh)}</span>
+    </div>
+  </div>`;
+}
 
-function render(){
-  const app=document.getElementById("app");
-  let fl=CATALYSTS.filter(it=>{
-    if(S.filter==="all")return true;
-    if(S.filter==="positions")return it.position?.shares>0||it.status==="limit_order";
-    if(S.filter==="upcoming")return gd(it.pdufaDate)>0&&gd(it.pdufaDate)<=60;
-    if(S.filter==="tier1")return it.tier===1;
-    if(S.filter==="active")return["active","approved"].includes(it.status);
-    return true;
-  }).sort((a,b)=>{
-    if(S.sort==="date")return new Date(a.pdufaDate)-new Date(b.pdufaDate);
-    if(S.sort==="risk")return sc(b)-sc(a);
-    if(S.sort==="tier")return a.tier-b.tier;
-    if(S.sort==="pnl"){
-      const pa=a.position?.shares>0?(a.position.currentPrice-a.position.avgPrice)*a.position.shares:-Infinity;
-      const pb=b.position?.shares>0?(b.position.currentPrice-b.position.avgPrice)*b.position.shares:-Infinity;
-      return pb-pa;
+// ── STATE ──
+let S = {
+  filter:"all", sort:"date", exp:null,
+  ai:false, aiQ:"", aiR:"", aiL:false,
+  scoreMin:65,
+  dateFrom:"", dateTo:"",
+  designations:[],
+  pathways:[],
+  proxyOk:false, pricesLoaded:false, lastPriceUpdate:null
+};
+
+let livePrices = {};
+
+// ── LIVE DATA ──
+async function fetchLivePrices() {
+  try {
+    const res = await fetch(`${PROXY}/prices`);
+    const data = await res.json();
+    if(data.data && Object.keys(data.data).length > 0) {
+      livePrices = data.data;
+      S.pricesLoaded = true;
+      S.proxyOk = true;
+      S.lastPriceUpdate = data.lastUpdated;
+      CATALYSTS.forEach(c => {
+        if(livePrices[c.ticker]) {
+          if(c.position) c.position.currentPrice = livePrices[c.ticker];
+          else if(c.position === null) c._livePrice = livePrices[c.ticker];
+        }
+      });
+      render();
     }
-    return 0;
-  });
+  } catch(e) {
+    S.proxyOk = false;
+    console.log("Proxy not reachable:", e.message);
+    render();
+  }
+}
+
+async function refreshPrices() {
+  S.pricesLoaded = false;
+  render();
+  await fetchLivePrices();
+}
+
+// ── AI ──
+async function runAi() {
+  const inp = document.getElementById("aiI");
+  S.aiQ = inp.value;
+  if(!S.aiQ.trim()) return;
+  S.aiL=true; S.aiR=""; render();
+  const ctx = CATALYSTS.map(c=>`${c.ticker}: ${c.drug} for ${c.indication}. PDUFA ${c.pdufaDate}. Prob ${c.probability}%. Status:${c.status}. ${c.position?.shares>0?`Holding ${c.position.shares}sh @$${c.position.avgPrice}. Current $${c.position.currentPrice}. Stop $${c.stopLoss}.`:c.position?.limitPrice?`Limit @$${c.position.limitPrice}`:"No position."} Score:${sc(c)}/100. Risk:${c.keyRisk}`).join("\n");
+  try {
+    const res = await fetch(`${PROXY}/ai`, {
+      method:"POST",
+      headers:{"Content-Type":"application/json"},
+      body:JSON.stringify({
+        system:"You are a PDUFA catalyst trading analyst for a retail investor named Million. Be concise, direct, institutional. No disclaimers. Today is May 10, 2026.",
+        messages:[{role:"user",content:`Portfolio context:\n\n${ctx}\n\nStarting capital: $3,500.\n\nQuestion: ${S.aiQ}`}]
+      })
+    });
+    const data = await res.json();
+    S.aiR = data.content?.filter(b=>b.type==="text").map(b=>b.text).join("\n") || "No response.";
+  } catch(e) {
+    S.aiR = "Proxy connection error: "+e.message;
+  }
+  S.aiL=false; render();
+}
+
+// ── RENDER ──
+function render() {
+  const app = document.getElementById("app");
+
+  // Apply filters
+  let fl = CATALYSTS.filter(it => {
+    if(S.filter==="positions") return it.position?.shares>0||it.status==="limit_order";
+    if(S.filter==="upcoming") return gd(it.pdufaDate)>0&&gd(it.pdufaDate)<=60;
+    if(S.filter==="tier1") return it.tier===1;
+    if(S.filter==="active") return ["active","approved"].includes(it.status);
+    return true;
+  }).filter(it => sc(it) >= S.scoreMin)
+    .filter(it => {
+      if(S.dateFrom) { const d=gd(it.pdufaDate); const from=Math.ceil((new Date(S.dateFrom)-TODAY)/864e5); if(d<from) return false; }
+      if(S.dateTo) { const d=gd(it.pdufaDate); const to=Math.ceil((new Date(S.dateTo)-TODAY)/864e5); if(d>to) return false; }
+      return true;
+    })
+    .filter(it => S.designations.length===0 || S.designations.some(d=>it.designation.includes(d)))
+    .filter(it => S.pathways.length===0 || S.pathways.includes(it.pathway))
+    .sort((a,b) => {
+      if(S.sort==="date") return new Date(a.pdufaDate)-new Date(b.pdufaDate);
+      if(S.sort==="risk") return sc(b)-sc(a);
+      if(S.sort==="tier") return a.tier-b.tier;
+      if(S.sort==="prob") return b.probability-a.probability;
+      if(S.sort==="pnl") {
+        const pa=a.position?.shares>0?(a.position.currentPrice-a.position.avgPrice)*a.position.shares:-Infinity;
+        const pb=b.position?.shares>0?(b.position.currentPrice-b.position.avgPrice)*b.position.shares:-Infinity;
+        return pb-pa;
+      }
+      return 0;
+    });
 
   const aP=CATALYSTS.filter(c=>c.position?.shares>0);
   const dep=aP.reduce((s,c)=>s+c.position.shares*c.position.avgPrice,0);
   const cur=aP.reduce((s,c)=>s+c.position.shares*c.position.currentPrice,0);
   const pnl=cur-dep;
-  const nxt=CATALYSTS.filter(c=>gd(c.pdufaDate)>0).sort((a,b)=>new Date(a.pdufaDate)-new Date(b.pdufaDate));
+  const nxt=CATALYSTS.filter(c=>gd(c.pdufaDate)>0&&["active","watchlist","pipeline","limit_order"].includes(c.status)).sort((a,b)=>new Date(a.pdufaDate)-new Date(b.pdufaDate));
   const urg=CATALYSTS.filter(c=>gd(c.pdufaDate)>0&&gd(c.pdufaDate)<=14&&(c.position?.shares>0||c.status==="limit_order")).length;
   const pipe=CATALYSTS.filter(c=>gd(c.pdufaDate)>0).length;
+  const lastUpdate=S.lastPriceUpdate?new Date(S.lastPriceUpdate).toLocaleTimeString("en-US",{hour:"2-digit",minute:"2-digit"}):"—";
 
-  let h=`
+  let h = `
   <div class="hdr">
     <div class="brand">
       <div class="bmark">M</div>
       <div>
         <div class="btitle">Million PDUFA Engine</div>
-        <div class="bsub">Catalyst-Driven Investment System &middot; ${CATALYSTS.length} opportunities &middot; Updated ${TODAY.toLocaleDateString("en-US",{month:"long",day:"numeric",year:"numeric"})}</div>
+        <div class="bsub">Catalyst-Driven Investment System &middot; ${CATALYSTS.length} opportunities tracked &middot; ${TODAY.toLocaleDateString("en-US",{month:"long",day:"numeric",year:"numeric"})}</div>
       </div>
     </div>
     <div class="hdr-r">
       ${urg>0?`<div class="urg-badge"><div class="urg-dot"></div>${urg} Urgent</div>`:""}
-      <button class="btn-ai ${S.ai?"on":""}" onclick="toggleAi()">${S.ai?"▲":"▼"} AI Analyst</button>
+      ${S.proxyOk?`<div class="live-badge"><div class="live-dot"></div>Live Prices</div>`:""}
+      <button class="btn btn-refresh" onclick="refreshPrices()" title="Refresh prices">⟳ Refresh</button>
+      <button class="btn ${S.ai?"on":""}" onclick="toggleAi()">${S.ai?"▲":"▼"} AI Analyst</button>
     </div>
   </div>
 
@@ -266,12 +429,27 @@ function render(){
       {lb:"Deployed Capital",v:fmt(dep),s:`${aP.length} active positions`,c:"var(--blue)"},
       {lb:"Unrealized P&L",v:`${pnl>=0?"+":""}${fmt(pnl)}`,s:dep>0?`${(pnl/dep*100).toFixed(1)}% return`:"—",c:pnl>=0?"var(--green)":"var(--red)"},
       {lb:"Current Value",v:fmt(cur),s:"Mark to market",c:"var(--text-1)"},
-      {lb:"Next Catalyst",v:nxt[0]?.ticker||"—",s:nxt[0]?`${gd(nxt[0].pdufaDate)}d &middot; ${new Date(nxt[0].pdufaDate+"T12:00:00").toLocaleDateString("en-US",{month:"short",day:"numeric"})}`:"",c:"var(--amber)"},
+      {lb:"Next Catalyst",v:nxt[0]?.ticker||"—",s:nxt[0]?`${gd(nxt[0].pdufaDate)}d &middot; ${fmtDate(nxt[0].pdufaDate)}`:"",c:"var(--amber)"},
       {lb:"Pipeline",v:`${pipe}`,s:"Active opportunities",c:"var(--purple)"}
     ].map(m=>`<div class="metric"><div class="mlabel">${m.lb}</div><div class="mvalue" style="color:${m.c}">${m.v}</div><div class="msub">${m.s}</div></div>`).join("")}
+  </div>
+
+  <div class="status-bar">
+    <div class="status-item">
+      <div class="status-dot ${S.proxyOk?"ok":"err"}"></div>
+      <span>${S.proxyOk?"Proxy connected":"Proxy offline — using cached prices"}</span>
+    </div>
+    <div class="status-item">
+      <div class="status-dot ${S.pricesLoaded?"ok":"loading"}"></div>
+      <span>Prices ${S.pricesLoaded?`updated ${lastUpdate}`:"loading..."}</span>
+    </div>
+    <div class="status-item" style="margin-left:auto;color:var(--text-3)">
+      Proxy: ${PROXY}
+    </div>
   </div>`;
 
-  if(S.ai){
+  // AI Panel
+  if(S.ai) {
     const qs=["What should I do this week?","Portfolio risk assessment","Best risk/reward right now?","Capital allocation check","Next entry after VRDN?"];
     h+=`<div class="ai-panel">
       <div class="ai-hdr"><div class="ai-dot"></div><span class="ai-lbl">AI Analyst</span></div>
@@ -286,21 +464,69 @@ function render(){
     </div>`;
   }
 
-  const fs=[{k:"all",l:"All"},{k:"positions",l:"My Positions"},{k:"upcoming",l:"Next 60 Days"},{k:"tier1",l:"Tier 1"},{k:"active",l:"Active"}];
-  const ss=[{k:"date",l:"Date"},{k:"risk",l:"Score"},{k:"tier",l:"Tier"},{k:"pnl",l:"P&L"}];
-  h+=`<div class="toolbar">
-    <div class="fg">${fs.map(f=>`<button class="fb ${S.filter===f.k?"on":""}" onclick="setF('${f.k}')">${f.l}</button>`).join("")}</div>
+  // Filters
+  const allDesigs=["Breakthrough","Priority Review","Orphan Drug","Accelerated Approval","Label Expansion","505(b)(2)","Device/Formulation"];
+  const allPathways=["NDA","BLA","sNDA","sBLA","BLA (Accelerated)","NDA 505(b)(2)"];
+  h+=`<div class="filters-wrap">
+    <div class="filters-title">Filters</div>
+    <div class="filter-row">
+      <div class="filter-group">
+        <div class="filter-label">View</div>
+        <div class="fg">
+          ${[{k:"all",l:"All"},{k:"positions",l:"My Positions"},{k:"upcoming",l:"Next 60d"},{k:"tier1",l:"Tier 1"},{k:"active",l:"Active"}]
+            .map(f=>`<button class="fb ${S.filter===f.k?"on":""}" onclick="setF('${f.k}')">${f.l}</button>`).join("")}
+        </div>
+      </div>
+      <div class="filter-group">
+        <div class="filter-label">PDUFA Date Range</div>
+        <div class="range-inputs">
+          <input type="date" class="date-inp" value="${S.dateFrom}" onchange="setDateFrom(this.value)"/>
+          <span class="range-sep">to</span>
+          <input type="date" class="date-inp" value="${S.dateTo}" onchange="setDateTo(this.value)"/>
+        </div>
+      </div>
+      <div class="filter-group">
+        <div class="filter-label">Min Score: <span style="color:var(--blue);font-weight:700">${S.scoreMin}</span></div>
+        <div class="score-row">
+          <input type="range" class="score-slider" min="60" max="99" value="${S.scoreMin}" oninput="setScore(this.value)"/>
+          <span class="score-val">${S.scoreMin}+</span>
+        </div>
+      </div>
+      <div class="filter-actions">
+        <button class="btn-clear" onclick="clearFilters()">Clear All</button>
+      </div>
+    </div>
+    <div class="filter-row" style="margin-top:12px">
+      <div class="filter-group">
+        <div class="filter-label">Designation</div>
+        <div class="filter-chips">
+          ${allDesigs.map(d=>`<button class="chip ${S.designations.includes(d)?"on":""}" onclick="toggleDesig('${d}')">${d}</button>`).join("")}
+        </div>
+      </div>
+    </div>
+  </div>`;
+
+  // Sort bar
+  const ss=[{k:"date",l:"Date"},{k:"prob",l:"Probability"},{k:"risk",l:"Score"},{k:"tier",l:"Tier"},{k:"pnl",l:"P&L"}];
+  h+=`<div class="sort-bar">
+    <div class="result-count">${fl.length} of ${CATALYSTS.length} opportunities</div>
     <div class="sg"><span class="slbl">Sort</span>${ss.map(s=>`<button class="sb ${S.sort===s.k?"on":""}" onclick="setSo('${s.k}')">${s.l}</button>`).join("")}</div>
-  </div>
-  <div class="tbl">
+  </div>`;
+
+  // Table
+  h+=`<div class="tbl">
     <div class="thead">
       <div class="th">Score</div><div class="th">Ticker</div><div class="th">Drug / Indication</div>
       <div class="th r">PDUFA</div><div class="th r">Prob</div><div class="th r">Tier</div>
-      <div class="th r">P&L</div><div class="th">Signal</div>
+      <div class="th r">P&L / Price</div><div class="th">Signal</div>
     </div>`;
 
-  fl.forEach(item=>{
-    const d=gd(item.pdufaDate),st=STS[item.status]||STS.watchlist,rs=sc(item),r=rc(item);
+  if(fl.length===0) {
+    h+=`<div class="empty"><div class="empty-icon">🔍</div><div class="empty-text">No opportunities match your filters</div><div class="empty-sub">Try adjusting the score threshold or date range</div></div>`;
+  }
+
+  fl.forEach(item => {
+    const d=gd(item.pdufaDate), st=STS[item.status]||STS.watchlist, rs=sc(item), r=rc(item);
     const hp=item.position?.shares>0;
     const pv=hp?(item.position.currentPrice-item.position.avgPrice)*item.position.shares:null;
     const pp=hp?((item.position.currentPrice-item.position.avgPrice)/item.position.avgPrice*100):null;
@@ -308,20 +534,27 @@ function render(){
     const ex=S.exp===item.id;
     const dc=d<0?"var(--text-3)":d<=7?"var(--red)":d<=21?"var(--amber)":"var(--text-1)";
     const pc=item.probability>=80?"var(--green)":item.probability>=70?"var(--blue)":"var(--red)";
+    const livePrice=livePrices[item.ticker];
+    const isLive=!!livePrice&&S.proxyOk;
 
     h+=`<div class="row ${ex?"exp":""}">
       <div class="row-main" onclick="tog('${item.id}')">
         <div style="display:flex;align-items:center;justify-content:center">${ring(rs)}</div>
         <div><div class="tkr">${item.ticker}</div><span class="stag" style="color:${st.c};background:${st.bg}">${st.l}</span></div>
         <div><div class="dname">${item.drug}</div><div class="ind">${item.indication}</div></div>
-        <div><div class="days" style="color:${dc}">${d<0?"Resolved":d===0?"Today":d+"d"}</div><div class="pdt">${new Date(item.pdufaDate+"T12:00:00").toLocaleDateString("en-US",{month:"short",day:"numeric",year:"numeric"})}</div></div>
+        <div><div class="days" style="color:${dc}">${d<0?"Resolved":d===0?"Today":d+"d"}</div><div class="pdt">${fmtDate(item.pdufaDate)}</div></div>
         <div class="prob" style="color:${pc}">${item.probability}%</div>
         <div class="tier" style="color:${TC[item.tier]}">T${item.tier}</div>
-        <div>${hp?`<div class="pnl-v" style="color:${pv>=0?"var(--green)":"var(--red)"}">${pv>=0?"+":""}${fmt(pv)}</div><div class="pnl-p" style="color:${pv>=0?"var(--green)":"var(--red)"}">${pp>=0?"+":""}${pp.toFixed(1)}%</div>`:item.position?.limitPrice?`<div class="lim-v">@ ${fmt(item.position.limitPrice)}</div>`:`<div class="no-p">—</div>`}</div>
+        <div>${hp?
+          `<div class="pnl-v" style="color:${pv>=0?"var(--green)":"var(--red)"}">${pv>=0?"+":""}${fmt(pv)}</div>
+           <div class="pnl-p" style="color:${pv>=0?"var(--green)":"var(--red)"}">${pp>=0?"+":""}${pp.toFixed(1)}%${isLive?` <span class="price-live">LIVE</span>`:""}</div>`:
+          item.position?.limitPrice?`<div class="lim-v">@ ${fmt(item.position.limitPrice)}</div>`:
+          livePrice?`<div style="font-size:11px;font-family:'JetBrains Mono',monospace;text-align:right;color:var(--text-2)">${fmt(livePrice)}${isLive?` <span class="price-live">LIVE</span>`:""}</div>`:
+          `<div class="no-p">—</div>`}</div>
         <div><span class="sig" style="color:${r.c};background:${r.bg}">${r.a}</span></div>
       </div>`;
 
-    if(ex){
+    if(ex) {
       h+=`<div class="detail"><div class="det-in">
         <div class="rec-bar" style="background:${r.bg};border-left-color:${r.c}">
           <span class="ra" style="color:${r.c}">${r.a}</span>
@@ -334,23 +567,34 @@ function render(){
             <div class="dr"><span class="dl">Endpoint</span><span class="dv">${item.primaryEndpoint}</span></div>
             <div class="dr"><span class="dl">Safety</span><span class="dv">${item.safetyProfile}</span></div>
             <div class="dr"><span class="dl">Pathway</span><span class="dv">${item.pathway} &middot; ${item.reviewType}</span></div>
+            ${item.adcomDate?`<div class="dr"><span class="dl">AdCom</span><span class="dv">${item.adcomDate}${item.adcomVote?` &middot; ${item.adcomVote}`:""}</span></div>`:""}
+            <div class="dr"><span class="dl">Hist. Rate</span><span class="dv" style="color:var(--green)">${item.historicalApprovalRate}</span></div>
+            <div class="dlinks">
+              ${item.nctId?`<a class="dlink" href="https://clinicaltrials.gov/study/${item.nctId}" target="_blank">ClinicalTrials.gov ↗</a>`:""}
+              <a class="dlink" href="https://www.sec.gov/cgi-bin/browse-edgar?action=getcompany&company=${encodeURIComponent(item.company)}&type=8-K&dateb=&owner=include&count=10" target="_blank">SEC Filings ↗</a>
+              <a class="dlink" href="https://finance.yahoo.com/quote/${item.ticker}" target="_blank">Yahoo Finance ↗</a>
+            </div>
           </div>
           <div>
             <div class="dst">Market Context</div>
             <div class="dr"><span class="dl">Market Cap</span><span class="dv">${item.marketCap}</span></div>
             <div class="dr"><span class="dl">Cash</span><span class="dv">${item.cash}</span></div>
             <div class="dr"><span class="dl">Competition</span><span class="dv">${item.competitorContext}</span></div>
-            ${item.analystConsensus?`<div class="dr"><span class="dl">Price Target</span><span class="dv">${fmt(item.analystConsensus)} (${fmt(item.analystLow)}–${fmt(item.analystHigh)})</span></div>`:""}
+            ${item.analystConsensus?`<div class="dr"><span class="dl">Consensus PT</span><span class="dv" style="color:var(--green);font-weight:600">${fmt(item.analystConsensus)}</span></div>`:""}
+            ${item.analystHigh?`<div class="dr"><span class="dl">PT Range</span><span class="dv">${fmt(item.analystLow)} – ${fmt(item.analystHigh)}</span></div>`:""}
+            ${livePrice?`<div class="dr"><span class="dl">Live Price</span><span class="dv" style="color:var(--blue);font-weight:600">${fmt(livePrice)} <span class="price-live">LIVE</span></span></div>`:""}
           </div>
           <div>
             <div class="dst">Risk & Position</div>
             <div class="dr"><span class="dl">Key Risk</span><span class="dv dv-r">${item.keyRisk}</span></div>
-            ${hp?`<div class="dr"><span class="dl">Position</span><span class="dv">${item.position.shares} shares @ ${fmt(item.position.avgPrice)}</span></div>
+            ${hp?`
+            <div class="dr"><span class="dl">Position</span><span class="dv">${item.position.shares} shares @ ${fmt(item.position.avgPrice)}</span></div>
             <div class="dr"><span class="dl">Cost Basis</span><span class="dv">${fmt(cb)}</span></div>
             <div class="dr"><span class="dl">Stop Loss</span><span class="dv dv-r">${fmt(item.stopLoss)}</span></div>`:""}
             <div class="desigs">${item.designation.map(d=>`<span class="desig">${d}</span>`).join("")}</div>
           </div>
         </div>
+        ${ptBar(item)}
         <div class="dnotes"><strong>Notes:</strong> ${item.notes}</div>
       </div></div>`;
     }
@@ -359,6 +603,7 @@ function render(){
 
   h+=`</div>`;
 
+  // Compounding
   const steps=[{c:"Start",v:"$3,500"},{c:"Cycle 1",v:"$4,025"},{c:"Cycle 2",v:"$5,031"},{c:"Cycle 3",v:"$6,037"},{c:"Cycle 4",v:"$7,848"},{c:"Cycle 6",v:"$10,830"}];
   h+=`<div class="cbar">
     <div class="ctitle">12-Month Compounding Projection</div>
@@ -366,30 +611,27 @@ function render(){
   </div>
   <div class="footer">Million PDUFA Engine &middot; Research analysis for personal use &middot; Not financial advice</div>`;
 
-  app.innerHTML=h;
+  app.innerHTML = h;
 }
 
+// ── ACTIONS ──
 function setF(f){S.filter=f;render();}
 function setSo(s){S.sort=s;render();}
 function tog(id){S.exp=S.exp===id?null:id;render();}
 function toggleAi(){S.ai=!S.ai;render();}
 function setQ(q){S.aiQ=q;render();document.getElementById("aiI").value=q;}
+function setScore(v){S.scoreMin=parseInt(v);render();}
+function setDateFrom(v){S.dateFrom=v;render();}
+function setDateTo(v){S.dateTo=v;render();}
+function toggleDesig(d){S.designations.includes(d)?S.designations=S.designations.filter(x=>x!==d):S.designations.push(d);render();}
+function clearFilters(){S.filter="all";S.scoreMin=65;S.dateFrom="";S.dateTo="";S.designations=[];S.pathways=[];render();}
 
-async function runAi(){
-  const inp=document.getElementById("aiI");
-  S.aiQ=inp.value;
-  if(!S.aiQ.trim())return;
-  S.aiL=true;S.aiR="";render();
-  const ctx=CATALYSTS.map(c=>`${c.ticker}: ${c.drug} for ${c.indication}. PDUFA ${c.pdufaDate}. Prob ${c.probability}%. Status:${c.status}. ${c.position?.shares>0?`Holding ${c.position.shares}sh @$${c.position.avgPrice}. Stop $${c.stopLoss}.`:c.position?.limitPrice?`Limit @$${c.position.limitPrice}`:"No position."} Score:${sc(c)}/100. Risk:${c.keyRisk}`).join("\n");
-  try{
-    const res=await fetch("https://api.anthropic.com/v1/messages",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({model:"claude-sonnet-4-20250514",max_tokens:1000,messages:[{role:"user",content:`You are a PDUFA catalyst trading analyst. Portfolio:\n\n${ctx}\n\nToday: May 8, 2026. Starting capital: $3,500. Be concise, direct, institutional. No disclaimers.\n\nQuestion: ${S.aiQ}`}]})});
-    const data=await res.json();
-    S.aiR=data.content?.filter(b=>b.type==="text").map(b=>b.text).join("\n")||"No response.";
-  }catch(e){S.aiR="Connection error: "+e.message+"\n\nThe AI Analyst requires a proxy server to work on hosted sites. This will be resolved with the DigitalOcean proxy setup.";}
-  S.aiL=false;render();
-}
-
+// ── INIT ──
 render();
+fetchLivePrices();
+
+// Auto-refresh prices every 5 minutes
+setInterval(fetchLivePrices, 5*60*1000);
 </script>
 </body>
 </html>
