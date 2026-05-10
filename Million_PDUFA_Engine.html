@@ -1176,6 +1176,17 @@ function saveNote() {
 
 // ── ACTIONS ──
 function setView(v) { APP.view=v; render(); }
+
+// ── INIT ──
+try {
+  render();
+  fetchLivePrices();
+  fetchLiveCalendar();
+  setInterval(fetchLivePrices, 5*60*1000);
+} catch(e) {
+  console.error("Init error:", e);
+  document.getElementById("app").innerHTML = `<div style="padding:40px;font-family:sans-serif;color:#b91c1c"><h2>Dashboard Error</h2><pre>${e.message}</pre><button onclick="location.reload()">Reload</button></div>`;
+}
 </script>
 </body>
 </html>
