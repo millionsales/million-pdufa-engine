@@ -518,9 +518,21 @@ function renderCalendar() {
   APP.state.watchlist.filter(w=>!w.passed).forEach(w => { if (!posMap[w.ticker]) posMap[w.ticker] = "watchlist"; });
   APP.state.watchlist.filter(w=>w.passed).forEach(w => { if (!posMap[w.ticker]) posMap[w.ticker] = "passed"; });
 
+  // Sort options
+  const sortedFiltered = [...filtered].sort((a,b) => {
+    if(APP.calSort==="prob") return (b.approvalProbability||0)-(a.approvalProbability||0);
+    if(APP.calSort==="days") return new Date(a.pdufaDate)-new Date(b.pdufaDate);
+    if(APP.calSort==="ev") {
+      const eva = calcEV(a.approvalProbability, a.estimatedUpside, a.estimatedDownside)||0;
+      const evb = calcEV(b.approvalProbability, b.estimatedUpside, b.estimatedDownside)||0;
+      return evb-eva;
+    }
+    return new Date(a.pdufaDate)-new Date(b.pdufaDate);
+  });
+
   return `
   <div class="page-hdr">
-    <div><div class="page-title">PDUFA Calendar</div><div class="page-sub">${filtered.length} upcoming events${liveCalendar.length>0?" · Live from EDGAR+seed":""}</div></div>
+    <div><div class="page-title">PDUFA Calendar</div><div class="page-sub">${filtered.length} events · Live from EDGAR+ClinicalTrials+seed · Enriched with approval probability</div></div>
     <div class="hdr-actions">
       <button class="btn btn-sm" onclick="fetchLiveCalendar().then(render)">⟳ Refresh</button>
       <button class="btn btn-sm btn-primary" onclick="openModal('addPosition')">+ Add Position</button>
@@ -528,36 +540,84 @@ function renderCalendar() {
   </div>
   <div class="filter-bar">
     <input class="search-inp" placeholder="Search ticker, company, indication..." value="${APP.filters.search}" oninput="APP.filters.search=this.value;render()"/>
-    <input type="date" class="search-inp" style="width:140px" value="${APP.filters.dateFrom}" onchange="APP.filters.dateFrom=this.value;render()" placeholder="From"/>
-    <input type="date" class="search-inp" style="width:140px" value="${APP.filters.dateTo}" onchange="APP.filters.dateTo=this.value;render()" placeholder="To"/>
-    <button class="btn btn-sm" onclick="APP.filters={status:'all',search:'',scoreMin:0,dateFrom:'',dateTo:''};render()">Clear</button>
+    <input type="date" class="search-inp" style="width:130px" value="${APP.filters.dateFrom}" onchange="APP.filters.dateFrom=this.value;render()"/>
+    <input type="date" class="search-inp" style="width:130px" value="${APP.filters.dateTo}" onchange="APP.filters.dateTo=this.value;render()"/>
+    <div class="score-wrap">
+      <span>Min Prob:</span>
+      <input type="range" class="score-slider" min="60" max="99" value="${APP.filters.minProb||60}" oninput="APP.filters.minProb=parseInt(this.value);render()"/>
+      <span style="color:var(--blue);font-weight:700;font-family:'JetBrains Mono',monospace">${APP.filters.minProb||60}%+</span>
+    </div>
+    <button class="btn btn-sm" onclick="APP.filters={status:'all',search:'',scoreMin:0,dateFrom:'',dateTo:'',minProb:60};render()">Clear</button>
+  </div>
+  <div style="display:flex;gap:4px;margin-bottom:10px;align-items:center">
+    <span style="font-size:10px;color:var(--t3);margin-right:4px">Sort:</span>
+    ${[{k:"days",l:"Date"},{k:"prob",l:"Probability"},{k:"ev",l:"Expected Value"}].map(s=>`<button class="btn btn-sm ${APP.calSort===s.k||(!APP.calSort&&s.k==='days')?'btn-primary':''}" onclick="APP.calSort='${s.k}';render()">${s.l}</button>`).join("")}
   </div>
   <div class="card">
     <div class="tbl-wrap">
       <table>
         <thead><tr>
-          <th>Ticker</th><th>Drug / Indication</th>
-          <th class="r">PDUFA</th><th class="r">Days</th>
-          <th class="r">Price</th><th>My Status</th><th>Action</th>
+          <th>Ticker</th>
+          <th>Drug / Indication</th>
+          <th class="r">PDUFA</th>
+          <th class="r">Days</th>
+          <th class="r">Prob</th>
+          <th class="r">EV</th>
+          <th class="r">Up/Down</th>
+          <th>Designations</th>
+          <th class="r">Price</th>
+          <th>Status</th>
+          <th>Action</th>
         </tr></thead>
         <tbody>
-        ${filtered.map(e => {
+        ${sortedFiltered.filter(e => (e.approvalProbability||0) >= (APP.filters.minProb||60) || !e.approvalProbability).map(e => {
           const d = getDays(e.pdufaDate);
           const price = livePrices[e.ticker];
           const myStatus = posMap[e.ticker];
           const dc = d<0?"var(--t3)":d<=7?"var(--red)":d<=21?"var(--amber)":"var(--t1)";
-          return `<tr>
-            <td><span class="mono" style="font-weight:700">${e.ticker||"—"}</span><br><span style="font-size:10px;color:var(--t3)">${e.company||""}</span></td>
-            <td><div style="font-weight:500">${e.drug||"—"}</div><div style="font-size:10px;color:var(--t3)">${e.indication||""}</div></td>
-            <td class="r mono" style="font-size:11px">${fmtDate(e.pdufaDate)}</td>
+          const prob = e.approvalProbability;
+          const probColor = prob>=85?"var(--green)":prob>=75?"var(--blue)":prob>=65?"var(--amber)":"var(--red)";
+          const ev = calcEV(prob, e.estimatedUpside, e.estimatedDownside);
+          const evColor = ev>0?"var(--green)":"var(--red)";
+          const desigs = e.designations || [];
+          const highConviction = prob>=80 && ev>0 && d>0 && d<=84 && myStatus!=="position";
+          return `<tr style="${highConviction?"background:var(--green-bg)":""}">
+            <td>
+              <span class="mono" style="font-weight:700;${highConviction?"color:var(--green)":""}">${e.ticker||"—"}</span>
+              ${highConviction?`<span style="font-size:9px;font-weight:700;color:var(--green);display:block">★ HIGH CONVICTION</span>`:""}
+              <span style="font-size:10px;color:var(--t3);display:block">${e.company||""}</span>
+            </td>
+            <td>
+              <div style="font-weight:500;font-size:12px">${e.drug||"—"}</div>
+              <div style="font-size:10px;color:var(--t3)">${e.indication?.substring(0,60)||""}</div>
+            </td>
+            <td class="r" style="font-size:11px;color:var(--t2)">${fmtDate(e.pdufaDate)}</td>
             <td class="r" style="color:${dc};font-weight:700;font-family:'JetBrains Mono',monospace">${d<0?"Done":d===0?"Today":d+"d"}</td>
-            <td class="r mono">${price?fmt(price):"—"}</td>
-            <td>${myStatus==="position"?`<span class="tag" style="background:var(--blue-bg);color:var(--blue)">Position</span>`:myStatus==="watchlist"?`<span class="tag" style="background:var(--amber-bg);color:var(--amber)">Watchlist</span>`:myStatus==="passed"?`<span class="tag" style="background:var(--gray-bg);color:var(--gray)">Passed</span>`:`<span class="tag" style="background:var(--border-light);color:var(--t3)">Not tracked</span>`}</td>
+            <td class="r">
+              ${prob?`<span style="font-size:13px;font-weight:800;font-family:'JetBrains Mono',monospace;color:${probColor}">${prob}%</span>`:"<span style='color:var(--t3)'>—</span>"}
+            </td>
+            <td class="r">
+              ${ev!==null?`<span style="font-size:12px;font-weight:700;font-family:'JetBrains Mono',monospace;color:${evColor}">${ev>=0?"+":""}${ev.toFixed(1)}%</span>`:"<span style='color:var(--t3)'>—</span>"}
+            </td>
+            <td class="r" style="font-size:10px;font-family:'JetBrains Mono',monospace">
+              ${e.estimatedUpside?`<span style="color:var(--green)">+${e.estimatedUpside}%</span> / <span style="color:var(--red)">${e.estimatedDownside}%</span>`:"—"}
+            </td>
+            <td>
+              <div style="display:flex;gap:3px;flex-wrap:wrap">
+                ${desigs.slice(0,3).map(d=>`<span style="font-size:8px;font-weight:600;padding:1px 5px;border-radius:3px;background:var(--blue-bg);color:var(--blue);white-space:nowrap">${d}</span>`).join("")}
+                ${e.phase?`<span style="font-size:8px;padding:1px 5px;border-radius:3px;background:var(--gray-bg);color:var(--t2)">${e.phase.replace("PHASE","Ph")}</span>`:""}
+              </div>
+            </td>
+            <td class="r mono" style="font-size:11px">${price?fmt(price):"—"}</td>
+            <td>${myStatus==="position"?`<span class="tag" style="background:var(--blue-bg);color:var(--blue)">Position</span>`:myStatus==="watchlist"?`<span class="tag" style="background:var(--amber-bg);color:var(--amber)">Watchlist</span>`:myStatus==="passed"?`<span class="tag" style="background:var(--gray-bg);color:var(--gray)">Passed</span>`:`<span class="tag" style="background:var(--border-light);color:var(--t3)">—</span>`}</td>
             <td><button class="btn btn-sm" onclick="openModal('addPosition',${JSON.stringify({ticker:e.ticker,company:e.company,drug:e.drug,indication:e.indication,pdufaDate:e.pdufaDate}).replace(/"/g,'&quot;')})">Track</button></td>
           </tr>`;
         }).join("")}
-        ${filtered.length===0?`<tr><td colspan="7"><div class="empty"><div class="empty-icon">📅</div>No events match your filters</div></td></tr>`:""}
+        ${filtered.length===0?`<tr><td colspan="11"><div class="empty"><div class="empty-icon">📅</div>No events match your filters</div></td></tr>`:""}
         </tbody>
+      </table>
+    </div>
+  </div>`;
       </table>
     </div>
   </div>`;
