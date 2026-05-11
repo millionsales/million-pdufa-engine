@@ -557,6 +557,7 @@ function renderCalendar() {
   // Sort options
   const sortedFiltered = [...filtered].sort((a,b) => {
     if(APP.calSort==="prob") return (b.approvalProbability||0)-(a.approvalProbability||0);
+    if(APP.calSort==="gap") return (b.probabilityGap||0)-(a.probabilityGap||0);
     if(APP.calSort==="days") return new Date(a.pdufaDate)-new Date(b.pdufaDate);
     if(APP.calSort==="ev") {
       const eva = calcEV(a.approvalProbability, a.estimatedUpside, a.estimatedDownside)||0;
@@ -587,7 +588,7 @@ function renderCalendar() {
   </div>
   <div style="display:flex;gap:4px;margin-bottom:10px;align-items:center">
     <span style="font-size:10px;color:var(--t3);margin-right:4px">Sort:</span>
-    ${[{k:"days",l:"Date"},{k:"prob",l:"Probability"},{k:"ev",l:"EV"}].map(s=>{const a=APP.calSort===s.k||(!APP.calSort&&s.k==="days");return '<button class="btn btn-sm'+(a?' btn-primary':'')+'" onclick="APP.calSort=\''+s.k+'\';render()">'+s.l+'</button>';}).join("")}
+    ${[{k:"days",l:"Date"},{k:"prob",l:"Model%"},{k:"gap",l:"Gap"},{k:"ev",l:"EV"}].map(s=>{const a=APP.calSort===s.k||(!APP.calSort&&s.k==="days");return '<button class="btn btn-sm'+(a?' btn-primary':'')+'" onclick="APP.calSort=\''+s.k+'\';render()">'+s.l+'</button>';}).join("")}
   </div>
   <div class="card">
     <div class="tbl-wrap">
@@ -597,7 +598,9 @@ function renderCalendar() {
           <th>Drug / Indication</th>
           <th class="r">PDUFA</th>
           <th class="r">Days</th>
-          <th class="r">Prob</th>
+          <th class="r">Market%</th>
+          <th class="r">Model%</th>
+          <th class="r">Gap</th>
           <th class="r">EV</th>
           <th class="r">Up/Down</th>
           <th>Designations</th>
@@ -653,7 +656,13 @@ function renderCalendar() {
             <td class="r" style="font-size:11px;color:var(--t2)">${fmtDate(e.pdufaDate)}</td>
             <td class="r" style="color:${dc};font-weight:700;font-family:'JetBrains Mono',monospace">${d<0?"Done":d===0?"Today":d+"d"}</td>
             <td class="r">
-              ${prob?`<span style="font-size:13px;font-weight:800;font-family:'JetBrains Mono',monospace;color:${probColor}">${prob}%</span>`:"<span style='color:var(--t3)'>—</span>"}
+              ${e.marketImpliedProbability!=null?`<span style="font-size:12px;font-weight:700;font-family:'JetBrains Mono',monospace;color:var(--t2)">${e.marketImpliedProbability}%</span>`:`<span style="color:var(--t3)">—</span>`}
+            </td>
+            <td class="r">
+              ${prob?`<span style="font-size:12px;font-weight:700;font-family:'JetBrains Mono',monospace;color:${probColor}">${prob}%</span>`:`<span style="color:var(--t3)">—</span>`}
+            </td>
+            <td class="r">
+              ${e.probabilityGap!=null?`<span style="font-size:13px;font-weight:800;font-family:'JetBrains Mono',monospace;color:${e.probabilityGap>=10?"var(--green)":e.probabilityGap>=0?"var(--amber)":"var(--red)"}">${e.probabilityGap>=0?"+":""}${e.probabilityGap}pp</span>`:`<span style="color:var(--t3)">—</span>`}
             </td>
             <td class="r">
               ${ev!==null?`<span style="font-size:12px;font-weight:700;font-family:'JetBrains Mono',monospace;color:${evColor}">${ev>=0?"+":""}${ev.toFixed(1)}%</span>`:"<span style='color:var(--t3)'>—</span>"}
@@ -672,7 +681,7 @@ function renderCalendar() {
             <td><button class="btn btn-sm" onclick="openModal('addPosition',${JSON.stringify({ticker:e.ticker,company:e.company,drug:e.drug,indication:e.indication,pdufaDate:e.pdufaDate}).replace(/"/g,'&quot;')})">Track</button></td>
           </tr>`;
         }).join("")}
-        ${filtered.length===0?`<tr><td colspan="11"><div class="empty"><div class="empty-icon">📅</div>No events match your filters</div></td></tr>`:""}
+        ${filtered.length===0?`<tr><td colspan="13"><div class="empty"><div class="empty-icon">📅</div>No events match your filters</div></td></tr>`:""}
         </tbody>
       </table>
     </div>
