@@ -1,0 +1,1461 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Million PDUFA Engine</title>
+<link href="https://fonts.googleapis.com/css2?family=Sora:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg:#f7f8fa; --surface:#fff; --border:#e8eaed; --border-light:#f0f2f5;
+  --t1:#0d1117; --t2:#5c6470; --t3:#9ca3af;
+  --blue:#1a56db; --blue-bg:#eff4ff; --blue-border:#bfdbfe;
+  --green:#0d7a4e; --green-bg:#ecfdf5; --green-border:#6ee7b7;
+  --red:#b91c1c; --red-bg:#fef2f2; --red-border:#fca5a5;
+  --amber:#92400e; --amber-bg:#fffbeb; --amber-border:#fcd34d;
+  --purple:#5b21b6; --purple-bg:#f5f3ff; --purple-border:#c4b5fd;
+  --gray:#374151; --gray-bg:#f9fafb;
+}
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:var(--bg);color:var(--t1);font-family:'Sora',-apple-system,sans-serif;font-size:13px;line-height:1.5;-webkit-font-smoothing:antialiased}
+::-webkit-scrollbar{width:4px}::-webkit-scrollbar-track{background:transparent}::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px}
+@keyframes fadeIn{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:translateY(0)}}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
+
+/* ── LAYOUT ── */
+.app{display:flex;height:100vh;overflow:hidden}
+.sidebar{width:200px;flex-shrink:0;background:var(--surface);border-right:1px solid var(--border);display:flex;flex-direction:column;padding:20px 0}
+.main{flex:1;overflow-y:auto;padding:24px}
+
+/* ── SIDEBAR ── */
+.sb-brand{padding:0 16px 20px;border-bottom:1px solid var(--border);margin-bottom:12px}
+.sb-mark{width:32px;height:32px;background:var(--blue);border-radius:7px;display:flex;align-items:center;justify-content:center;font-family:'JetBrains Mono',monospace;font-size:12px;font-weight:700;color:#fff;margin-bottom:8px}
+.sb-title{font-size:13px;font-weight:700;color:var(--t1);letter-spacing:-.3px}
+.sb-sub{font-size:9px;color:var(--t3);margin-top:1px}
+.sb-nav{padding:0 8px;flex:1}
+.sb-section{font-size:9px;font-weight:700;color:var(--t3);text-transform:uppercase;letter-spacing:.1em;padding:8px 8px 4px}
+.sb-item{display:flex;align-items:center;gap:8px;padding:7px 8px;border-radius:6px;cursor:pointer;font-size:12px;font-weight:500;color:var(--t2);transition:all .12s;margin-bottom:1px;border:none;background:transparent;width:100%;text-align:left;font-family:'Sora',sans-serif}
+.sb-item:hover{background:var(--bg);color:var(--t1)}
+.sb-item.on{background:var(--blue-bg);color:var(--blue);font-weight:600}
+.sb-icon{font-size:14px;width:18px;text-align:center}
+.sb-badge{margin-left:auto;font-size:9px;font-weight:700;padding:1px 6px;border-radius:10px;background:var(--red-bg);color:var(--red)}
+.sb-status{padding:12px 16px;border-top:1px solid var(--border);margin-top:auto}
+.sb-status-row{display:flex;align-items:center;gap:5px;font-size:10px;color:var(--t3);margin-bottom:3px}
+.sdot{width:5px;height:5px;border-radius:50%}
+.sdot.ok{background:var(--green)}
+.sdot.err{background:var(--red)}
+.sdot.loading{background:var(--amber);animation:pulse 1s infinite}
+
+/* ── HEADER ── */
+.page-hdr{display:flex;justify-content:space-between;align-items:center;margin-bottom:20px}
+.page-title{font-size:18px;font-weight:700;color:var(--t1);letter-spacing:-.3px}
+.page-sub{font-size:11px;color:var(--t3);margin-top:2px}
+.hdr-actions{display:flex;gap:8px}
+.btn{padding:6px 12px;border-radius:6px;border:1px solid var(--border);cursor:pointer;font-size:11px;font-weight:600;background:var(--surface);color:var(--t2);font-family:'Sora',sans-serif;transition:all .15s}
+.btn:hover{border-color:var(--blue);color:var(--blue)}
+.btn-primary{background:var(--blue);color:#fff;border-color:var(--blue)}
+.btn-primary:hover{opacity:.9;color:#fff}
+.btn-sm{padding:4px 9px;font-size:10px}
+.btn-danger{border-color:var(--red-border);color:var(--red)}
+.btn-danger:hover{background:var(--red-bg)}
+
+/* ── METRICS ── */
+.metrics{display:grid;grid-template-columns:repeat(5,1fr);gap:10px;margin-bottom:20px}
+.metric{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:14px 16px}
+.mlbl{font-size:9px;font-weight:600;color:var(--t3);text-transform:uppercase;letter-spacing:.08em;margin-bottom:5px}
+.mval{font-size:19px;font-weight:700;font-family:'JetBrains Mono',monospace;letter-spacing:-1px}
+.msub{font-size:10px;color:var(--t3);margin-top:2px}
+
+/* ── CARDS ── */
+.card{background:var(--surface);border:1px solid var(--border);border-radius:8px;overflow:hidden;margin-bottom:14px}
+.card-hdr{display:flex;justify-content:space-between;align-items:center;padding:12px 16px;border-bottom:1px solid var(--border);background:var(--bg)}
+.card-title{font-size:11px;font-weight:700;color:var(--t2);text-transform:uppercase;letter-spacing:.06em}
+.card-actions{display:flex;gap:6px}
+
+/* ── TABLE ── */
+.tbl-wrap{overflow-x:auto}
+table{width:100%;border-collapse:collapse}
+th{font-size:9px;font-weight:700;color:var(--t3);text-transform:uppercase;letter-spacing:.08em;padding:8px 12px;text-align:left;border-bottom:1px solid var(--border);background:var(--bg);white-space:nowrap}
+th.r{text-align:right}
+td{padding:11px 12px;border-bottom:1px solid var(--border-light);font-size:12px;color:var(--t1);vertical-align:middle}
+td.r{text-align:right}
+tr:last-child td{border-bottom:none}
+tr:hover td{background:var(--bg)}
+.mono{font-family:'JetBrains Mono',monospace}
+
+/* ── TAGS & BADGES ── */
+.tag{display:inline-block;font-size:9px;font-weight:600;padding:2px 7px;border-radius:3px;text-transform:uppercase;letter-spacing:.05em}
+.gap-pos{background:#d1fae5;color:#065f46}
+.gap-neu{background:#fef3c7;color:#78350f}
+.gap-neg{background:#fee2e2;color:#991b1b}
+.ev-pos{color:var(--green);font-weight:700}
+.ev-neg{color:var(--red);font-weight:700}
+.sig-tag{font-size:9px;font-weight:700;padding:2px 8px;border-radius:3px;text-transform:uppercase;letter-spacing:.04em}
+
+/* ── PROBABILITY GAP ── */
+.gap-bar{display:flex;align-items:center;gap:6px}
+.gap-num{font-size:13px;font-weight:800;font-family:'JetBrains Mono',monospace}
+.gap-pos-num{color:var(--green)}
+.gap-neu-num{color:var(--amber)}
+.gap-neg-num{color:var(--red)}
+
+/* ── MODAL ── */
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:1000;display:flex;align-items:center;justify-content:center;animation:fadeIn .15s ease}
+.modal{background:var(--surface);border-radius:10px;width:600px;max-width:95vw;max-height:90vh;overflow-y:auto;box-shadow:0 20px 60px rgba(0,0,0,.15)}
+.modal-hdr{display:flex;justify-content:space-between;align-items:center;padding:16px 20px;border-bottom:1px solid var(--border)}
+.modal-title{font-size:14px;font-weight:700;color:var(--t1)}
+.modal-close{background:none;border:none;font-size:18px;cursor:pointer;color:var(--t3);line-height:1}
+.modal-body{padding:20px}
+.modal-footer{padding:14px 20px;border-top:1px solid var(--border);display:flex;justify-content:flex-end;gap:8px}
+
+/* ── FORM ── */
+.form-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.form-group{display:flex;flex-direction:column;gap:4px}
+.form-group.full{grid-column:1/-1}
+label{font-size:10px;font-weight:600;color:var(--t2);text-transform:uppercase;letter-spacing:.06em}
+input,select,textarea{padding:8px 10px;background:var(--bg);border:1px solid var(--border);border-radius:6px;color:var(--t1);font-size:12px;font-family:'Sora',sans-serif;outline:none;transition:border-color .15s;width:100%}
+input:focus,select:focus,textarea:focus{border-color:var(--blue)}
+textarea{resize:vertical;min-height:72px}
+.form-hint{font-size:10px;color:var(--t3);margin-top:2px}
+.ev-preview{padding:10px 12px;background:var(--bg);border:1px solid var(--border);border-radius:6px;margin-top:8px}
+.ev-preview-title{font-size:9px;font-weight:600;color:var(--t3);text-transform:uppercase;letter-spacing:.08em;margin-bottom:6px}
+.ev-preview-val{font-size:18px;font-weight:800;font-family:'JetBrains Mono',monospace}
+.ev-preview-sub{font-size:10px;color:var(--t3);margin-top:2px}
+.gap-preview{font-size:12px;font-weight:600;margin-top:4px}
+
+/* ── TRANCHE ── */
+.tranche-row{display:grid;grid-template-columns:1fr 1fr 1fr auto;gap:8px;align-items:end;margin-bottom:8px;padding:10px;background:var(--bg);border-radius:6px;border:1px solid var(--border)}
+.tranche-lbl{font-size:10px;font-weight:600;color:var(--blue);margin-bottom:6px}
+.blended{padding:8px 12px;background:var(--blue-bg);border-radius:6px;font-size:11px;color:var(--blue);font-weight:600;margin-top:4px}
+
+/* ── CALIBRATION ── */
+.cal-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;padding:16px}
+.cal-stat{text-align:center}
+.cal-val{font-size:22px;font-weight:800;font-family:'JetBrains Mono',monospace;color:var(--blue)}
+.cal-lbl{font-size:10px;color:var(--t3);margin-top:3px}
+
+/* ── HEAT ── */
+.heat-bar{height:8px;border-radius:4px;background:var(--border);overflow:hidden;margin-top:6px}
+.heat-fill{height:100%;border-radius:4px;transition:width .5s ease}
+
+/* ── FILTERS ── */
+.filter-bar{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:14px}
+.filter-group{display:flex;gap:2px;background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:2px}
+.fb{padding:4px 10px;font-size:10px;font-weight:500;border:none;border-radius:4px;cursor:pointer;background:transparent;color:var(--t2);font-family:'Sora',sans-serif;transition:all .12s}
+.fb.on{background:var(--blue);color:#fff;font-weight:600}
+.search-inp{padding:6px 10px;background:var(--surface);border:1px solid var(--border);border-radius:6px;color:var(--t1);font-size:11px;font-family:'Sora',sans-serif;outline:none;width:180px}
+.search-inp:focus{border-color:var(--blue)}
+.score-wrap{display:flex;align-items:center;gap:6px;font-size:10px;color:var(--t3)}
+.score-slider{-webkit-appearance:none;width:100px;height:3px;border-radius:2px;background:var(--border);outline:none}
+.score-slider::-webkit-slider-thumb{-webkit-appearance:none;width:12px;height:12px;border-radius:50%;background:var(--blue);cursor:pointer}
+
+/* ── EMPTY ── */
+.empty{padding:40px;text-align:center;color:var(--t3)}
+.empty-icon{font-size:28px;margin-bottom:8px}
+
+/* ── NOTES ── */
+.note-card{background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:12px;margin-bottom:8px}
+.note-meta{display:flex;justify-content:space-between;margin-bottom:6px}
+.note-ticker{font-size:12px;font-weight:700;color:var(--t1);font-family:'JetBrains Mono',monospace}
+.note-date{font-size:10px;color:var(--t3)}
+.note-outcome{font-size:10px;font-weight:600;padding:1px 6px;border-radius:3px;margin-left:6px}
+.note-text{font-size:11px;color:var(--t2);line-height:1.6}
+
+/* ── EXPORT ── */
+.export-row{display:flex;gap:8px;justify-content:flex-end;padding:10px 16px;border-top:1px solid var(--border)}
+
+/* Mobile */
+.mobile-hdr{display:none;align-items:center;justify-content:space-between;padding:10px 16px;background:var(--surface);border-bottom:1px solid var(--border);position:sticky;top:0;z-index:100;flex-shrink:0}
+.mobile-brand{display:flex;align-items:center;gap:8px}
+.mobile-title{font-size:14px;font-weight:700;color:var(--t1);letter-spacing:-.3px}
+.mobile-sub{font-size:9px;color:var(--t3);margin-top:1px}
+.mobile-nav{display:none;position:fixed;bottom:0;left:0;right:0;background:var(--surface);border-top:1px solid var(--border);padding:4px 0 6px;z-index:100;justify-content:space-around}
+.mnav-btn{display:flex;flex-direction:column;align-items:center;gap:1px;padding:4px 6px;cursor:pointer;border:none;background:none;font-family:'Sora',sans-serif;font-size:8px;color:var(--t3);font-weight:500;transition:color .12s;min-width:44px}
+.mnav-btn.on{color:var(--blue)}
+.mnav-icon{font-size:16px;line-height:1}
+
+@media(max-width:800px){
+  .sidebar{display:none}
+  .mobile-hdr{display:flex}
+  .mobile-nav{display:flex}
+  .app{flex-direction:column;height:auto;min-height:100vh}
+  .main{padding:14px 14px 72px;overflow-y:auto}
+  .metrics{grid-template-columns:1fr 1fr}
+  .form-grid{grid-template-columns:1fr}
+  .thead,.row-main{grid-template-columns:80px 1fr 70px 80px}
+  .thead>.th:nth-child(n+5),.row-main>div:nth-child(n+5){display:none}
+}
+</style>
+</head>
+<body>
+<div class="app" id="app"></div>
+
+<script>
+// ── CONFIG ──
+const PROXY = "https://proxy.millionsales.net";
+const STORAGE_KEY = "million_pdufa_v2";
+
+// ── STORAGE ──
+function loadData() {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    return raw ? JSON.parse(raw) : null;
+  } catch(e) { return null; }
+}
+
+function saveData(data) {
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+  } catch(e) { console.error("Storage error:", e); }
+}
+
+// ── DEFAULT STATE ──
+const DEFAULT_STATE = {
+  positions: [
+    {
+      id:"axsm-001", ticker:"AXSM", company:"Axsome Therapeutics", drug:"AXS-05 (Auvelity)",
+      indication:"Alzheimer's Disease Agitation", pdufaDate:"2026-04-30",
+      status:"approved", marketCap:"large",
+      marketImpliedProb: 71, myAssessedProb: 78,
+      upside: 25, downside: -18,
+      tranches:[{date:"2026-04-14",price:182.67,shares:6,capital:1096.02}],
+      stopLoss:148.0, currentPrice:217.38,
+      exitDate:"", exitPrice:"", exitTrigger:"",
+      realizedPnl:"",
+      notes:"Approved April 30. Modest 2% move — priced in. Market was at 71% implied. Our edge was the commercial ramp story."
+    },
+    {
+      id:"vrdn-001", ticker:"VRDN", company:"Viridian Therapeutics", drug:"Veligrotug (IV)",
+      indication:"Thyroid Eye Disease", pdufaDate:"2026-06-30",
+      status:"active", marketCap:"mid",
+      marketImpliedProb: 55, myAssessedProb: 75,
+      upside: 120, downside: -35,
+      tranches:[{date:"2026-04-14",price:15.10,shares:50,capital:755}],
+      stopLoss:10.0, currentPrice:16.61,
+      exitDate:"", exitPrice:"", exitTrigger:"", realizedPnl:"",
+      notes:"Contrarian entry. REVEAL-1 selloff created a 20pt gap. Market conflated elegrobart with veligrotug."
+    },
+    {
+      id:"vera-001", ticker:"VERA", company:"Vera Therapeutics", drug:"Atacicept",
+      indication:"IgA Nephropathy", pdufaDate:"2026-07-07",
+      status:"active", marketCap:"mid",
+      marketImpliedProb: 60, myAssessedProb: 75,
+      upside: 75, downside: -25,
+      tranches:[
+        {date:"2026-04-14",price:43.32,shares:10,capital:433.20},
+        {date:"",price:"",shares:"",capital:""},
+        {date:"",price:"",shares:"",capital:""}
+      ],
+      stopLoss:34.0, currentPrice:36.19,
+      exitDate:"", exitPrice:"", exitTrigger:"", realizedPnl:"",
+      notes:"NEJM-published Phase 3 data. Tranche 1 of 3. Market underpricing due to VOYXACT competition concerns."
+    }
+  ],
+  watchlist: [
+    { id:"nuvl-w", ticker:"NUVL", company:"Nuvalent", drug:"Zidesamtinib", indication:"ROS1+ NSCLC", pdufaDate:"2026-09-18", marketImpliedProb:65, myAssessedProb:80, upside:60, downside:-30, notes:"Entry window opens July/August. Deploy VRDN proceeds.", passed:false },
+    { id:"argx-w", ticker:"ARGX", company:"Argenx", drug:"VYVGART", indication:"Seroneg. MG", pdufaDate:"2026-05-10", marketImpliedProb:78, myAssessedProb:80, upside:10, downside:-8, notes:"Low gap, low upside. Large-cap. Marginal entry.", passed:false },
+    { id:"biib-w", ticker:"BIIB", company:"Biogen/Eisai", drug:"LEQEMBI IQLIK", indication:"Alzheimer's SubQ", pdufaDate:"2026-05-24", marketImpliedProb:88, myAssessedProb:90, upside:8, downside:-5, notes:"Gap too small. Device change — already priced in.", passed:true, passedReason:"Probability gap insufficient — market already at 88%" },
+    { id:"cing-w", ticker:"CING", company:"Cingulate", drug:"CTx-1301", indication:"ADHD", pdufaDate:"2026-05-31", marketImpliedProb:55, myAssessedProb:70, upside:200, downside:-60, notes:"Nano-cap. Max $300-500. CMC risk.", passed:false }
+  ],
+  calibrationLog: [
+    { id:"grce-cal", ticker:"GRCE", pdufaDate:"2026-04-23", marketImpliedProb:60, myAssessedProb:67, outcome:"CRL", stockMove:-49, entered:true, notes:"CMC issue. Manufacturing risk was flagged but underweighted." }
+  ],
+  resolutionNotes: [
+    { id:"grce-note", ticker:"GRCE", pdufaDate:"2026-04-23", outcome:"CRL", stockMove:-49, date:"2026-04-23", gotRight:"Sized appropriately at $500 max. Stop loss pre-set.", missed:"Underweighted manufacturing risk for novel IV formulation.", wouldDo:"Would not enter 505(b)(2) reformulations with thin cash runway under $25M.", framework:"Add cash runway filter: minimum $50M for binary events." }
+  ]
+};
+
+// ── LIVE DATA ──
+let livePrices = {};
+let liveCalendar = [];
+let proxyOk = false;
+let pricesLoaded = false;
+let lastPriceUpdate = null;
+
+async function fetchLivePrices() {
+  try {
+    const res = await fetch(`${PROXY}/prices`);
+    const data = await res.json();
+    if (data.data && Object.keys(data.data).length > 0) {
+      livePrices = data.data;
+      proxyOk = true;
+      pricesLoaded = true;
+      lastPriceUpdate = data.lastUpdated;
+      // Update current prices in positions
+      APP.state.positions.forEach(p => {
+        if (livePrices[p.ticker]) p.currentPrice = livePrices[p.ticker];
+      });
+      APP.state.watchlist.forEach(w => {
+        if (livePrices[w.ticker]) w._livePrice = livePrices[w.ticker];
+      });
+      render();
+    }
+  } catch(e) {
+    proxyOk = false;
+    render();
+  }
+}
+
+async function fetchLiveCalendar() {
+  try {
+    const res = await fetch(`${PROXY}/pdufa`);
+    const data = await res.json();
+    if (data.data && data.data.length > 0) {
+      liveCalendar = data.data;
+    }
+  } catch(e) {}
+}
+
+// ── SERVER-SIDE DATABASE SYNC ──
+let dbSynced = false;
+let dbSyncing = false;
+
+async function syncFromServer() {
+  if (dbSyncing) return;
+  dbSyncing = true;
+  try {
+    const res = await fetch(`${PROXY}/db/sync`);
+    const data = await res.json();
+    if (data.positions !== undefined) {
+      // Always use server data — it's the source of truth
+      APP.state.positions = data.positions || [];
+      APP.state.watchlist = data.watchlist || [];
+      APP.state.calibrationLog = data.calibration || [];
+      APP.state.resolutionNotes = data.notes || [];
+      dbSynced = true;
+      // If server is empty, migrate localStorage
+      if (data.stats.positions === 0 && data.stats.watchlist === 0) {
+        const localData = loadData();
+        if (localData && (localData.positions?.length > 0 || localData.watchlist?.length > 0)) {
+          console.log('Server empty — migrating localStorage...');
+          await fetch(`${PROXY}/db/import`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              positions: localData.positions || [],
+              watchlist: localData.watchlist || [],
+              calibration: localData.calibrationLog || [],
+              notes: localData.resolutionNotes || []
+            })
+          });
+          APP.state = localData;
+        }
+      }
+      console.log('Synced from server:', data.stats);
+      render();
+    }
+  } catch(e) {
+    console.log('Server sync failed, using localStorage:', e.message);
+    const localData = loadData();
+    if (localData) APP.state = localData;
+    dbSynced = false;
+  }
+  dbSyncing = false;
+}
+
+async function savePosition(existingId) {
+  // Save to server first, then update local state
+  const g = id => document.getElementById(id);
+  const ticker = g("f-ticker")?.value?.trim().toUpperCase();
+  if (!ticker) return alert("Ticker is required");
+  const pdufaDate = g("f-pdufa")?.value;
+  if (!pdufaDate) return alert("PDUFA date is required");
+
+  const tranches = [0,1,2].map(i => ({
+    date: g(`f-t${i}-date`)?.value || "",
+    price: g(`f-t${i}-price`)?.value || "",
+    shares: g(`f-t${i}-shares`)?.value || "",
+    capital: g(`f-t${i}-price`)?.value && g(`f-t${i}-shares`)?.value ? parseFloat(g(`f-t${i}-price`).value)*parseFloat(g(`f-t${i}-shares`).value) : ""
+  }));
+
+  const pos = {
+    id: existingId || `${ticker.toLowerCase()}-${Date.now()}`,
+    ticker, pdufaDate,
+    company: g("f-company")?.value || "",
+    drug: g("f-drug")?.value || "",
+    indication: g("f-indication")?.value || "",
+    marketCap: g("f-mktcap")?.value || "mid",
+    marketImpliedProb: parseFloat(g("f-mip")?.value) || null,
+    myAssessedProb: parseFloat(g("f-myp")?.value) || null,
+    upside: parseFloat(g("f-up")?.value) || null,
+    downside: parseFloat(g("f-down")?.value) || null,
+    stopLoss: parseFloat(g("f-stop")?.value) || null,
+    currentPrice: parseFloat(g("f-cur")?.value) || livePrices[ticker] || null,
+    status: "active",
+    tranches,
+    notes: g("f-notes")?.value || "",
+    exitDate:"", exitPrice:"", exitTrigger:"", realizedPnl:""
+  };
+
+  if (existingId) {
+    const idx = APP.state.positions.findIndex(p=>p.id===existingId);
+    if (idx>=0) { pos.status = APP.state.positions[idx].status; APP.state.positions[idx] = pos; }
+  } else {
+    APP.state.positions.push(pos);
+  }
+
+  // Save to server
+  try {
+    await fetch(`${PROXY}/db/positions`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(pos)
+    });
+  } catch(e) { console.log('Server save failed:', e.message); }
+
+  // Always save to localStorage as backup
+  saveData(APP.state);
+  closeModal();
+  APP.view = "positions";
+  render();
+}
+
+// ── APP STATE ──
+const APP = {
+  view: "calendar",
+  state: loadData() || JSON.parse(JSON.stringify(DEFAULT_STATE)),
+  modal: null,
+  editId: null,
+  filters: { status:"all", search:"", scoreMin:0, dateFrom:"", dateTo:"" }
+};
+
+async function save() {
+  saveData(APP.state);
+  // Also sync current state to server
+  try {
+    const state = APP.state;
+    await Promise.all([
+      ...state.positions.map(p => fetch(`${PROXY}/db/positions`, { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(p) })),
+      ...state.watchlist.map(w => fetch(`${PROXY}/db/watchlist`, { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(w) })),
+      ...state.calibrationLog.map(c => fetch(`${PROXY}/db/calibration`, { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(c) })),
+      ...state.resolutionNotes.map(n => fetch(`${PROXY}/db/notes`, { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(n) }))
+    ]);
+  } catch(e) { console.log('Server sync error:', e.message); }
+}
+
+// ── HELPERS ──
+const fmt = n => n==null||n===""?"—":"$"+Number(n).toLocaleString("en-US",{minimumFractionDigits:2,maximumFractionDigits:2});
+const fmtPct = n => n==null||n===""?"—":(n>=0?"+":"")+Number(n).toFixed(1)+"%";
+const fmtDate = d => d ? new Date(d+"T12:00:00").toLocaleDateString("en-US",{month:"short",day:"numeric",year:"numeric"}) : "—";
+const today = () => new Date().toISOString().split("T")[0];
+const getDays = d => Math.ceil((new Date(d+"T00:00:00")-new Date(today()+"T00:00:00"))/864e5);
+
+function calcBlended(tranches) {
+  const filled = tranches.filter(t => t.price && t.shares && parseFloat(t.shares) > 0);
+  if (!filled.length) return null;
+  const totalShares = filled.reduce((s,t) => s+parseFloat(t.shares), 0);
+  const totalCost = filled.reduce((s,t) => s+parseFloat(t.price)*parseFloat(t.shares), 0);
+  return { avgPrice: totalCost/totalShares, totalShares, totalCost };
+}
+
+function calcEV(myProb, upside, downside) {
+  if (!myProb || !upside || !downside) return null;
+  const p = myProb/100;
+  return (p * upside) + ((1-p) * downside);
+}
+
+function calcGap(marketProb, myProb) {
+  if (!marketProb || !myProb) return null;
+  return myProb - marketProb;
+}
+
+function gapColor(gap) {
+  if (gap === null) return "var(--t3)";
+  if (gap >= 10) return "var(--green)";
+  if (gap >= 0) return "var(--amber)";
+  return "var(--red)";
+}
+
+function gapBg(gap) {
+  if (gap === null) return "var(--gray-bg)";
+  if (gap >= 10) return "gap-pos";
+  if (gap >= 0) return "gap-neu";
+  return "gap-neg";
+}
+
+function posStatus(p) {
+  if (p.status === "approved") return {l:"Approved",c:"var(--green)",bg:"var(--green-bg)"};
+  if (p.status === "active") return {l:"Active",c:"var(--blue)",bg:"var(--blue-bg)"};
+  if (p.status === "expired") return {l:"Expired",c:"var(--t3)",bg:"var(--gray-bg)"};
+  if (p.status === "closed") return {l:"Closed",c:"var(--purple)",bg:"var(--purple-bg)"};
+  return {l:"Active",c:"var(--blue)",bg:"var(--blue-bg)"};
+}
+
+// ── PORTFOLIO METRICS ──
+function calcPortfolioMetrics() {
+  const positions = APP.state.positions.filter(p => !p.exitDate || p.status === "active" || p.status === "approved");
+  let deployed = 0, currentVal = 0, heatTotal = 0;
+  let nextPdufa = null, nextDays = Infinity;
+
+  positions.forEach(p => {
+    const b = calcBlended(p.tranches);
+    if (!b) return;
+    deployed += b.totalCost;
+    currentVal += b.totalShares * (parseFloat(p.currentPrice)||b.avgPrice);
+    // Portfolio heat: loss if all stops hit
+    if (p.stopLoss) {
+      heatTotal += b.totalShares * (b.avgPrice - parseFloat(p.stopLoss));
+    }
+    const d = getDays(p.pdufaDate);
+    if (d > 0 && d < nextDays) { nextDays = d; nextPdufa = p.ticker; }
+  });
+
+  const pnl = currentVal - deployed;
+  const pnlPct = deployed > 0 ? (pnl/deployed)*100 : 0;
+  const heatPct = deployed > 0 ? (heatTotal/deployed)*100 : 0;
+
+  return { deployed, currentVal, pnl, pnlPct, heatTotal, heatPct, nextPdufa, nextDays, openCount: positions.length };
+}
+
+// ── CALIBRATION METRICS ──
+function calcCalibration() {
+  const log = APP.state.calibrationLog;
+  if (!log.length) return { total:0, resolved:0, myAccuracy:0, marketAccuracy:0, avgGapWin:0, avgGapLoss:0 };
+
+  const resolved = log.filter(l => l.outcome && l.outcome !== "pending");
+  let myCorrect = 0, marketCorrect = 0, gapWins = [], gapLosses = [];
+
+  resolved.forEach(l => {
+    const approved = l.outcome === "Approved";
+    const myPredApprove = l.myAssessedProb >= 50;
+    const mktPredApprove = l.marketImpliedProb >= 50;
+    if (myPredApprove === approved) myCorrect++;
+    if (mktPredApprove === approved) marketCorrect++;
+    const gap = l.myAssessedProb - l.marketImpliedProb;
+    if (approved) gapWins.push(gap);
+    else gapLosses.push(gap);
+  });
+
+  return {
+    total: log.length,
+    resolved: resolved.length,
+    myAccuracy: resolved.length ? Math.round((myCorrect/resolved.length)*100) : 0,
+    marketAccuracy: resolved.length ? Math.round((marketCorrect/resolved.length)*100) : 0,
+    avgGapWin: gapWins.length ? (gapWins.reduce((a,b)=>a+b,0)/gapWins.length).toFixed(1) : "—",
+    avgGapLoss: gapLosses.length ? (gapLosses.reduce((a,b)=>a+b,0)/gapLosses.length).toFixed(1) : "—"
+  };
+}
+
+// ── EXPORT CSV ──
+function exportCSV(type) {
+  let rows = [], filename = "";
+  if (type === "positions") {
+    filename = "pdufa_positions.csv";
+    rows.push(["Ticker","Company","Drug","Indication","PDUFA Date","Status","Market Implied %","My Assessed %","Gap","EV","Entry Price","Shares","Cost Basis","Current Price","Unrealized P&L","Stop Loss","Exit Date","Exit Price","Realized P&L","Exit Trigger","Notes"]);
+    APP.state.positions.forEach(p => {
+      const b = calcBlended(p.tranches);
+      const gap = calcGap(p.marketImpliedProb, p.myAssessedProb);
+      const ev = calcEV(p.myAssessedProb, p.upside, p.downside);
+      const pnl = b ? (parseFloat(p.currentPrice||0)-b.avgPrice)*b.totalShares : "";
+      rows.push([p.ticker,p.company,p.drug,p.indication,p.pdufaDate,p.status,p.marketImpliedProb,p.myAssessedProb,gap,ev?.toFixed(1),b?.avgPrice.toFixed(2),b?.totalShares,b?.totalCost.toFixed(2),p.currentPrice,pnl?.toFixed(2),p.stopLoss,p.exitDate,p.exitPrice,p.realizedPnl,p.exitTrigger,p.notes]);
+    });
+  } else if (type === "calibration") {
+    filename = "pdufa_calibration.csv";
+    rows.push(["Ticker","PDUFA Date","Market Implied %","My Assessed %","Gap","Outcome","Stock Move %","Entered","Notes"]);
+    APP.state.calibrationLog.forEach(l => {
+      rows.push([l.ticker,l.pdufaDate,l.marketImpliedProb,l.myAssessedProb,(l.myAssessedProb-l.marketImpliedProb).toFixed(1),l.outcome,l.stockMove,l.entered?"Yes":"No",l.notes]);
+    });
+  }
+  const csv = rows.map(r => r.map(c => `"${String(c||"").replace(/"/g,'""')}"`).join(",")).join("\n");
+  const blob = new Blob([csv], {type:"text/csv"});
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = filename;
+  a.click();
+}
+
+// ── RENDER ──
+function render() {
+  const metrics = calcPortfolioMetrics();
+  const cal = calcCalibration();
+  const urgentCount = APP.state.positions.filter(p => {
+    const d = getDays(p.pdufaDate);
+    return d >= 0 && d <= 14 && (p.status === "active" || p.status === "approved");
+  }).length;
+  const lastUpdate = lastPriceUpdate ? new Date(lastPriceUpdate).toLocaleTimeString("en-US",{hour:"2-digit",minute:"2-digit"}) : "—";
+
+  const VIEWS = [
+    {k:"calendar",i:"📅",l:"Calendar"},
+    {k:"positions",i:"💼",l:"Positions"},
+    {k:"watchlist",i:"👁",l:"Watchlist"},
+    {k:"calibration",i:"🎯",l:"Calibration"},
+    {k:"notes",i:"📝",l:"Notes"},
+    {k:"ai",i:"🤖",l:"AI"},
+  ];
+
+  let html = `
+  <!-- Mobile Header -->
+  <div class="mobile-hdr">
+    <div class="mobile-brand">
+      <div class="sb-mark">M</div>
+      <div>
+        <div class="mobile-title">Million PDUFA Engine</div>
+        <div class="mobile-sub">${proxyOk?"● Live":"○ Offline"} · ${liveCalendar.length || APP.state.positions.length} events</div>
+      </div>
+    </div>
+    <button class="btn btn-sm" onclick="toggleAi()" style="font-size:10px">🤖 AI</button>
+  </div>
+
+  <!-- Sidebar -->
+  <div class="sidebar">
+    <div class="sb-brand">
+      <div class="sb-mark">M</div>
+      <div class="sb-title">Million PDUFA</div>
+      <div class="sb-sub">Engine v2.0</div>
+    </div>
+    <div class="sb-nav">
+      <div class="sb-section">Strategy</div>
+      ${VIEWS.map(v=>`<button class="sb-item ${APP.view===v.k?"on":""}" onclick="setView('${v.k}')">
+        <span class="sb-icon">${v.i}</span>${v.l}
+        ${v.k==="positions"&&urgentCount>0?`<span class="sb-badge">${urgentCount}</span>`:""}
+      </button>`).join("")}
+    </div>
+    <div class="sb-status">
+      <div class="sb-status-row"><div class="sdot ${proxyOk?"ok":"err"}"></div>${proxyOk?"Proxy live":"Proxy offline"}</div>
+      <div class="sb-status-row"><div class="sdot ${pricesLoaded?"ok":"loading"}"></div>Prices ${pricesLoaded?lastUpdate:"loading"}</div>
+      <div class="sb-status-row" id="etrade-status-row" style="cursor:pointer" onclick="etradeAuth()">
+        <div class="sdot" id="etrade-dot" style="background:var(--t3)"></div>
+        <span id="etrade-label">E*TRADE —</span>
+      </div>
+    </div>
+  </div>
+  <div class="main">`;
+
+  // Metrics bar (always visible)
+  html += `<div class="metrics">
+    ${[
+      {l:"Deployed",v:fmt(metrics.deployed),s:`${metrics.openCount} positions`,c:"var(--blue)"},
+      {l:"Unrealized P&L",v:`${metrics.pnl>=0?"+":""}${fmt(metrics.pnl)}`,s:fmtPct(metrics.pnlPct),c:metrics.pnl>=0?"var(--green)":"var(--red)"},
+      {l:"Portfolio Heat",v:fmt(metrics.heatTotal),s:`${metrics.heatPct.toFixed(1)}% of capital`,c:"var(--red)"},
+      {l:"Next PDUFA",v:metrics.nextPdufa||"—",s:metrics.nextPdufa?`${metrics.nextDays}d away`:"",c:"var(--amber)"},
+      {l:"Edge Accuracy",v:cal.myAccuracy?cal.myAccuracy+"%":"—",s:`vs market ${cal.marketAccuracy?cal.marketAccuracy+"%":"—"}`,c:cal.myAccuracy>cal.marketAccuracy?"var(--green)":"var(--blue)"}
+    ].map(m=>`<div class="metric"><div class="mlbl">${m.l}</div><div class="mval" style="color:${m.c}">${m.v}</div><div class="msub">${m.s}</div></div>`).join("")}
+  </div>`;
+
+  // Page content
+  if (APP.view === "calendar") html += renderCalendar();
+  else if (APP.view === "positions") html += renderPositions();
+  else if (APP.view === "watchlist") html += renderWatchlist();
+  else if (APP.view === "calibration") html += renderCalibration(cal);
+  else if (APP.view === "notes") html += renderNotes();
+  else if (APP.view === "ai") html += renderAI();
+
+  html += `</div>`;
+
+  // Mobile bottom nav
+  html += `<nav class="mobile-nav">
+    ${VIEWS.map(v=>`<button class="mnav-btn ${APP.view===v.k?"on":""}" onclick="setView('${v.k}')">
+      <span class="mnav-icon">${v.i}</span>${v.l}
+    </button>`).join("")}
+  </nav>`;
+
+  // Modal
+  if (APP.modal) html += renderModal();
+
+  document.getElementById("app").innerHTML = html;
+}
+
+// ── CALENDAR VIEW ──
+function renderCalendar() {
+  const all = liveCalendar.length > 0 ? liveCalendar : [
+    ...APP.state.positions.map(p=>({ticker:p.ticker,company:p.company,drug:p.drug,indication:p.indication,pdufaDate:p.pdufaDate,source:"position"})),
+    ...APP.state.watchlist.map(w=>({ticker:w.ticker,company:w.company,drug:w.drug,indication:w.indication,pdufaDate:w.pdufaDate,source:"watchlist"}))
+  ];
+
+  const filtered = all
+    .filter(e => APP.filters.search === "" || e.ticker.toLowerCase().includes(APP.filters.search.toLowerCase()) || e.company?.toLowerCase().includes(APP.filters.search.toLowerCase()) || e.indication?.toLowerCase().includes(APP.filters.search.toLowerCase()))
+    .filter(e => APP.filters.dateFrom === "" || e.pdufaDate >= APP.filters.dateFrom)
+    .filter(e => APP.filters.dateTo === "" || e.pdufaDate <= APP.filters.dateTo)
+    .sort((a,b) => a.pdufaDate.localeCompare(b.pdufaDate));
+
+  // Find my positions/watchlist status for each
+  const posMap = {};
+  APP.state.positions.forEach(p => posMap[p.ticker] = "position");
+  APP.state.watchlist.filter(w=>!w.passed).forEach(w => { if (!posMap[w.ticker]) posMap[w.ticker] = "watchlist"; });
+  APP.state.watchlist.filter(w=>w.passed).forEach(w => { if (!posMap[w.ticker]) posMap[w.ticker] = "passed"; });
+
+  // Sort options
+  const sortedFiltered = [...filtered].sort((a,b) => {
+    if(APP.calSort==="prob") return (b.approvalProbability||0)-(a.approvalProbability||0);
+    if(APP.calSort==="gap") return (b.probabilityGap||0)-(a.probabilityGap||0);
+    if(APP.calSort==="days") return new Date(a.pdufaDate)-new Date(b.pdufaDate);
+    if(APP.calSort==="ev") {
+      const eva = calcEV(a.approvalProbability, a.estimatedUpside, a.estimatedDownside)||0;
+      const evb = calcEV(b.approvalProbability, b.estimatedUpside, b.estimatedDownside)||0;
+      return evb-eva;
+    }
+    return new Date(a.pdufaDate)-new Date(b.pdufaDate);
+  });
+
+  return `
+  <div class="page-hdr">
+    <div><div class="page-title">PDUFA Calendar</div><div class="page-sub">${filtered.length} events · Live from EDGAR+ClinicalTrials+seed · Enriched with approval probability</div></div>
+    <div class="hdr-actions">
+      <button class="btn btn-sm" onclick="fetchLiveCalendar().then(render)">⟳ Refresh</button>
+      <button class="btn btn-sm btn-primary" onclick="openModal('addPosition')">+ Add Position</button>
+    </div>
+  </div>
+  <div class="filter-bar">
+    <input class="search-inp" placeholder="Search ticker, company, indication..." value="${APP.filters.search}" oninput="APP.filters.search=this.value;render()"/>
+    <input type="date" class="search-inp" style="width:130px" value="${APP.filters.dateFrom}" onchange="APP.filters.dateFrom=this.value;render()"/>
+    <input type="date" class="search-inp" style="width:130px" value="${APP.filters.dateTo}" onchange="APP.filters.dateTo=this.value;render()"/>
+    <div class="score-wrap">
+      <span>Min Prob:</span>
+      <input type="range" class="score-slider" min="60" max="99" value="${APP.filters.minProb||60}" oninput="APP.filters.minProb=parseInt(this.value);render()"/>
+      <span style="color:var(--blue);font-weight:700;font-family:'JetBrains Mono',monospace">${APP.filters.minProb||60}%+</span>
+    </div>
+    <button class="btn btn-sm" onclick="APP.filters={status:'all',search:'',scoreMin:0,dateFrom:'',dateTo:'',minProb:60};render()">Clear</button>
+  </div>
+  <div style="display:flex;gap:4px;margin-bottom:10px;align-items:center">
+    <span style="font-size:10px;color:var(--t3);margin-right:4px">Sort:</span>
+    ${[{k:"days",l:"Date"},{k:"prob",l:"Model%"},{k:"gap",l:"Gap"},{k:"ev",l:"EV"}].map(s=>{const a=APP.calSort===s.k||(!APP.calSort&&s.k==="days");return '<button class="btn btn-sm'+(a?' btn-primary':'')+'" onclick="APP.calSort=\''+s.k+'\';render()">'+s.l+'</button>';}).join("")}
+  </div>
+  <div class="card">
+    <div class="tbl-wrap">
+      <table>
+        <thead><tr>
+          <th>Ticker</th>
+          <th>Drug / Indication</th>
+          <th class="r">PDUFA</th>
+          <th class="r">Days</th>
+          <th class="r">Market%</th>
+          <th class="r">Model%</th>
+          <th class="r">Gap</th>
+          <th class="r">EV</th>
+          <th class="r">Up/Down</th>
+          <th>Designations</th>
+          <th class="r">Price</th>
+          <th>Status</th>
+          <th>Action</th>
+        </tr></thead>
+        <tbody>
+        ${sortedFiltered.filter(e => (e.approvalProbability||0) >= (APP.filters.minProb||60) || !e.approvalProbability).map(e => {
+          const d = getDays(e.pdufaDate);
+          const price = livePrices[e.ticker];
+          const myStatus = posMap[e.ticker];
+          const dc = d<0?"var(--t3)":d<=7?"var(--red)":d<=21?"var(--amber)":"var(--t1)";
+          const prob = e.approvalProbability;
+          const probColor = prob>=85?"var(--green)":prob>=75?"var(--blue)":prob>=65?"var(--amber)":"var(--red)";
+          const ev = calcEV(prob, e.estimatedUpside, e.estimatedDownside);
+          const evColor = ev>0?"var(--green)":"var(--red)";
+          const desigs = e.designations || [];
+          const upside = e.estimatedUpside || 0;
+
+          // Large-cap detection — by field or by known large-cap companies
+          const LARGE_CAP_NAMES = ["merck","pfizer","johnson","abbvie","bristol","eli lilly","amgen","gilead","biogen","regeneron","vertex","astrazeneca","sanofi","gsk","roche","novartis","jazz pharmaceuticals","takeda","alexion"];
+          const coName = (e.company||"").toLowerCase();
+          const isLargeCap = e.marketCap === "large" || LARGE_CAP_NAMES.some(n => coName.includes(n));
+          const notInPosition = myStatus !== "position";
+
+          // ── TWO-TIER HIGH CONVICTION ALGORITHM ──
+          // Tier 1: ★ HIGH CONVICTION (Act Now)
+          const tier1Standard = prob>=80 && ev>=40 && upside>=25 && !isLargeCap && d>0 && d<=84 && notInPosition;
+          const tier1Extended = prob>=88 && ev>=150 && upside>=25 && !isLargeCap && d>0 && d<=100 && notInPosition;
+          const tier1 = tier1Standard || tier1Extended;
+
+          // Position sizing recommendation based on EV
+          const sizingTier = ev>=150?"Exceptional — Full Position (3 tranches)":ev>=75?"Strong — 2 tranches now, 1 on pullback":ev>=40?"Standard — 1 tranche now, 1–2 on confirmation":"—";
+
+          // Tier 2: ◆ PIPELINE HIGH CONVICTION (Plan Entry)
+          const tier2 = !tier1 && prob>=85 && ev>=100 && upside>=40 && !isLargeCap && d>84 && d<=120 && notInPosition;
+
+          const rowBg = tier1?"background:var(--green-bg)":tier2?"background:#f0f9ff":"";
+          return `<tr style="${rowBg}">
+            <td>
+              <span class="mono" style="font-weight:700;${tier1?"color:var(--green)":tier2?"color:var(--blue)":""}">${e.ticker||"—"}</span>
+              ${tier1?`<span style="font-size:9px;font-weight:700;color:var(--green);display:block">★ HIGH CONVICTION</span>`:""}
+              ${tier2?`<span style="font-size:9px;font-weight:700;color:var(--blue);display:block">◆ PIPELINE</span>`:""}
+              ${tier1?`<span style="font-size:8px;color:var(--green);display:block;margin-top:1px">${sizingTier}</span>`:""}
+              ${tier2?`<span style="font-size:8px;color:var(--blue);display:block;margin-top:1px">Plan entry — window opens in ${d-84}d</span>`:""}
+              <span style="font-size:10px;color:var(--t3);display:block">${e.company||""}</span>
+            </td>
+            <td>
+              <div style="font-weight:500;font-size:12px">${e.drug||"—"}</div>
+              <div style="font-size:10px;color:var(--t3)">${e.indication?.substring(0,60)||""}</div>
+            </td>
+            <td class="r" style="font-size:11px;color:var(--t2)">${fmtDate(e.pdufaDate)}</td>
+            <td class="r" style="color:${dc};font-weight:700;font-family:'JetBrains Mono',monospace">${d<0?"Done":d===0?"Today":d+"d"}</td>
+            <td class="r">
+              ${e.marketImpliedProbability!=null?`<span style="font-size:12px;font-weight:700;font-family:'JetBrains Mono',monospace;color:var(--t2)">${e.marketImpliedProbability}%</span>`:`<span style="color:var(--t3)">—</span>`}
+            </td>
+            <td class="r">
+              ${prob?`<span style="font-size:12px;font-weight:700;font-family:'JetBrains Mono',monospace;color:${probColor}">${prob}%</span>`:`<span style="color:var(--t3)">—</span>`}
+            </td>
+            <td class="r">
+              ${e.probabilityGap!=null?`<span style="font-size:13px;font-weight:800;font-family:'JetBrains Mono',monospace;color:${e.probabilityGap>=10?"var(--green)":e.probabilityGap>=0?"var(--amber)":"var(--red)"}">${e.probabilityGap>=0?"+":""}${e.probabilityGap}pp</span>`:`<span style="color:var(--t3)">—</span>`}
+            </td>
+            <td class="r">
+              ${ev!==null?`<span style="font-size:12px;font-weight:700;font-family:'JetBrains Mono',monospace;color:${evColor}">${ev>=0?"+":""}${ev.toFixed(1)}%</span>`:"<span style='color:var(--t3)'>—</span>"}
+            </td>
+            <td class="r" style="font-size:10px;font-family:'JetBrains Mono',monospace">
+              ${e.estimatedUpside?`<span style="color:var(--green)">+${e.estimatedUpside}%</span> / <span style="color:var(--red)">${e.estimatedDownside}%</span>`:"—"}
+            </td>
+            <td>
+              <div style="display:flex;gap:3px;flex-wrap:wrap">
+                ${desigs.slice(0,3).map(d=>`<span style="font-size:8px;font-weight:600;padding:1px 5px;border-radius:3px;background:var(--blue-bg);color:var(--blue);white-space:nowrap">${d}</span>`).join("")}
+                ${e.phase?`<span style="font-size:8px;padding:1px 5px;border-radius:3px;background:var(--gray-bg);color:var(--t2)">${e.phase.replace("PHASE","Ph")}</span>`:""}
+              </div>
+            </td>
+            <td class="r mono" style="font-size:11px">${price?fmt(price):"—"}</td>
+            <td>${myStatus==="position"?'<span class="tag" style="background:var(--blue-bg);color:var(--blue)">Position</span>':myStatus==="watchlist"?'<span class="tag" style="background:var(--amber-bg);color:var(--amber)">Watchlist</span>':myStatus==="passed"?'<span class="tag" style="background:var(--gray-bg);color:var(--gray)">Passed</span>':'<span class="tag" style="background:var(--border-light);color:var(--t3)">—</span>'}</td>
+            <td><button class="btn btn-sm" onclick="openModal('addPosition',${JSON.stringify({ticker:e.ticker,company:e.company,drug:e.drug,indication:e.indication,pdufaDate:e.pdufaDate}).replace(/"/g,'&quot;')})">Track</button></td>
+          </tr>`;
+        }).join("")}
+        ${filtered.length===0?`<tr><td colspan="13"><div class="empty"><div class="empty-icon">📅</div>No events match your filters</div></td></tr>`:""}
+        </tbody>
+      </table>
+    </div>
+  </div>`;
+}
+
+// ── POSITIONS VIEW ──
+function renderPositions() {
+  const positions = APP.state.positions;
+
+  return `
+  <div class="page-hdr">
+    <div><div class="page-title">My Positions</div><div class="page-sub">Active and resolved catalyst trades</div></div>
+    <div class="hdr-actions">
+      <button class="btn btn-sm" onclick="exportCSV('positions')">↓ Export CSV</button>
+      <button class="btn btn-sm btn-primary" onclick="openModal('addPosition')">+ New Position</button>
+    </div>
+  </div>
+  ${positions.map(p => renderPositionCard(p)).join("")}
+  ${positions.length===0?`<div class="card"><div class="empty"><div class="empty-icon">💼</div><div>No positions yet. Add your first from the calendar.</div></div></div>`:""}`;
+}
+
+function renderPositionCard(p) {
+  const b = calcBlended(p.tranches);
+  const gap = calcGap(p.marketImpliedProb, p.myAssessedProb);
+  const ev = calcEV(p.myAssessedProb, p.upside, p.downside);
+  const curPrice = parseFloat(p.currentPrice) || (b ? b.avgPrice : 0);
+  const pnl = b ? (curPrice - b.avgPrice) * b.totalShares : null;
+  const pnlPct = b ? ((curPrice - b.avgPrice) / b.avgPrice) * 100 : null;
+  const st = posStatus(p);
+  const d = getDays(p.pdufaDate);
+  const gapClass = gap >= 10 ? "gap-pos-num" : gap >= 0 ? "gap-neu-num" : "gap-neg-num";
+  const evClass = ev > 0 ? "ev-pos" : "ev-neg";
+  const isUrgent = d >= 0 && d <= 14 && (p.status === "active" || p.status === "approved");
+
+  return `<div class="card" style="${isUrgent?"border-color:var(--red-border)":""}">
+    <div class="card-hdr">
+      <div style="display:flex;align-items:center;gap:10px">
+        <span style="font-size:15px;font-weight:700;font-family:'JetBrains Mono',monospace;color:var(--t1)">${p.ticker}</span>
+        <span class="tag" style="color:${st.c};background:${st.bg}">${st.l}</span>
+        ${isUrgent?`<span class="tag" style="background:var(--red-bg);color:var(--red)">⚡ ${d}d to PDUFA</span>`:`<span style="font-size:10px;color:var(--t3)">${d<0?"Resolved":d+"d to PDUFA"}</span>`}
+        <span style="font-size:11px;color:var(--t2)">${p.drug} · ${p.indication}</span>
+      </div>
+      <div class="card-actions">
+        <button class="btn btn-sm" onclick="openModal('editPosition','${p.id}')">Edit</button>
+        <button class="btn btn-sm" onclick="openModal('closePosition','${p.id}')">Close</button>
+      </div>
+    </div>
+    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:0;border-bottom:1px solid var(--border)">
+      ${[
+        {l:"Probability Gap",v:gap!==null?`${gap>=0?"+":""}${gap}pp`:"—",c:gapColor(gap),hint:`Market: ${p.marketImpliedProb}% → Mine: ${p.myAssessedProb}%`},
+        {l:"Expected Value",v:ev!==null?`${ev>=0?"+":""}${ev.toFixed(1)}%`:"—",c:ev>0?"var(--green)":"var(--red)",hint:`Up: +${p.upside}% / Down: ${p.downside}%`},
+        {l:"Unrealized P&L",v:pnl!==null?`${pnl>=0?"+":""}${fmt(pnl)}`:"—",c:pnl>=0?"var(--green)":"var(--red)",hint:pnlPct!==null?fmtPct(pnlPct):""},
+        {l:"Stop Loss",v:fmt(p.stopLoss),c:"var(--red)",hint:b?`Risk: ${fmt(b.totalShares*(b.avgPrice-(parseFloat(p.stopLoss)||0)))}`:""}
+      ].map(m=>`<div style="padding:12px 16px;border-right:1px solid var(--border-light)">
+        <div style="font-size:9px;font-weight:600;color:var(--t3);text-transform:uppercase;letter-spacing:.08em;margin-bottom:4px">${m.l}</div>
+        <div style="font-size:18px;font-weight:800;font-family:'JetBrains Mono',monospace;color:${m.c}">${m.v}</div>
+        <div style="font-size:10px;color:var(--t3);margin-top:2px">${m.hint}</div>
+      </div>`).join("")}
+    </div>
+    <div style="padding:12px 16px">
+      <div style="font-size:9px;font-weight:600;color:var(--t3);text-transform:uppercase;letter-spacing:.08em;margin-bottom:8px">Tranches</div>
+      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px">
+        ${p.tranches.map((t,i) => {
+          const filled = t.price && t.shares && parseFloat(t.shares)>0;
+          return `<div style="padding:8px 10px;background:${filled?"var(--blue-bg)":"var(--bg)"};border:1px solid ${filled?"var(--blue-border)":"var(--border)"};border-radius:6px">
+            <div style="font-size:9px;font-weight:700;color:${filled?"var(--blue)":"var(--t3)"};margin-bottom:4px">Tranche ${i+1}</div>
+            ${filled?`
+              <div style="font-size:11px;font-family:'JetBrains Mono',monospace;color:var(--t1)">${fmt(t.price)} × ${t.shares}sh</div>
+              <div style="font-size:10px;color:var(--t3)">${t.date||""} · ${fmt(parseFloat(t.price)*parseFloat(t.shares))}</div>
+            `:`<div style="font-size:10px;color:var(--t3)">Not deployed</div>`}
+          </div>`;
+        }).join("")}
+      </div>
+      ${b?`<div style="margin-top:8px;padding:6px 10px;background:var(--blue-bg);border-radius:5px;font-size:11px;color:var(--blue);font-weight:600">
+        Blended avg: ${fmt(b.avgPrice)} · ${b.totalShares} shares · ${fmt(b.totalCost)} deployed
+      </div>`:""}
+      ${p.notes?`<div style="margin-top:10px;font-size:11px;color:var(--t2);line-height:1.5;padding:8px 10px;background:var(--bg);border-radius:5px;border:1px solid var(--border)">${p.notes}</div>`:""}
+    </div>
+  </div>`;
+}
+
+// ── WATCHLIST VIEW ──
+function renderWatchlist() {
+  const active = APP.state.watchlist.filter(w => !w.passed);
+  const passed = APP.state.watchlist.filter(w => w.passed);
+
+  const renderWatchRow = (w) => {
+    const gap = calcGap(w.marketImpliedProb, w.myAssessedProb);
+    const ev = calcEV(w.myAssessedProb, w.upside, w.downside);
+    const d = getDays(w.pdufaDate);
+    const price = livePrices[w.ticker];
+    const entrySignal = gap >= 10 && ev > 0 && d > 14 && d <= 84;
+
+    return `<tr>
+      <td><span class="mono" style="font-weight:700">${w.ticker}</span></td>
+      <td><div style="font-weight:500">${w.drug}</div><div style="font-size:10px;color:var(--t3)">${w.indication}</div></td>
+      <td class="r" style="font-size:11px">${fmtDate(w.pdufaDate)}</td>
+      <td class="r" style="color:${d<=7?"var(--red)":d<=21?"var(--amber)":"var(--t1)"};font-weight:700;font-family:'JetBrains Mono',monospace">${d<0?"Done":d+"d"}</td>
+      <td class="r mono">${price?fmt(price):"—"}</td>
+      <td class="r"><span style="font-size:13px;font-weight:800;font-family:'JetBrains Mono',monospace;color:${gapColor(gap)}">${gap!==null?(gap>=0?"+":"")+gap+"pp":"—"}</span></td>
+      <td class="r" style="color:${ev>0?"var(--green)":"var(--red)"};font-weight:700;font-family:'JetBrains Mono',monospace">${ev!==null?(ev>=0?"+":"")+ev.toFixed(1)+"%":"—"}</td>
+      <td>${entrySignal?`<span class="tag" style="background:var(--green-bg);color:var(--green)">Entry Window</span>`:`<span class="tag" style="background:var(--gray-bg);color:var(--t3)">Watch</span>`}</td>
+      <td>
+        <button class="btn btn-sm btn-primary" onclick="convertToPosition('${w.id}')">Enter</button>
+        <button class="btn btn-sm btn-danger" onclick="markPassed('${w.id}')">Pass</button>
+      </td>
+    </tr>`;
+  };
+
+  return `
+  <div class="page-hdr">
+    <div><div class="page-title">Watchlist</div><div class="page-sub">Tracking without commitment</div></div>
+    <div class="hdr-actions">
+      <button class="btn btn-sm btn-primary" onclick="openModal('addWatchlist')">+ Add to Watchlist</button>
+    </div>
+  </div>
+
+  <div class="card" style="margin-bottom:14px">
+    <div class="card-hdr"><div class="card-title">Active Watchlist (${active.length})</div></div>
+    <div class="tbl-wrap">
+      <table>
+        <thead><tr>
+          <th>Ticker</th><th>Drug</th><th class="r">PDUFA</th><th class="r">Days</th>
+          <th class="r">Price</th><th class="r">Gap</th><th class="r">EV</th><th>Signal</th><th>Action</th>
+        </tr></thead>
+        <tbody>
+          ${active.map(renderWatchRow).join("")}
+          ${active.length===0?`<tr><td colspan="9"><div class="empty"><div class="empty-icon">👁</div>No active watchlist items</div></td></tr>`:""}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-hdr"><div class="card-title">Passed Opportunities (${passed.length})</div></div>
+    <div class="tbl-wrap">
+      <table>
+        <thead><tr><th>Ticker</th><th>Drug</th><th class="r">PDUFA</th><th class="r">Gap at Pass</th><th>Reason</th></tr></thead>
+        <tbody>
+          ${passed.map(w => {
+            const gap = calcGap(w.marketImpliedProb, w.myAssessedProb);
+            return `<tr>
+              <td class="mono" style="font-weight:700">${w.ticker}</td>
+              <td>${w.drug}<br><span style="font-size:10px;color:var(--t3)">${w.indication}</span></td>
+              <td class="r" style="font-size:11px">${fmtDate(w.pdufaDate)}</td>
+              <td class="r" style="font-weight:700;font-family:'JetBrains Mono',monospace;color:${gapColor(gap)}">${gap!==null?(gap>=0?"+":"")+gap+"pp":"—"}</td>
+              <td style="font-size:11px;color:var(--t2)">${w.passedReason||w.notes||"—"}</td>
+            </tr>`;
+          }).join("")}
+          ${passed.length===0?`<tr><td colspan="5"><div class="empty"><div class="empty-icon">✓</div>No passed opportunities logged yet</div></td></tr>`:""}
+        </tbody>
+      </table>
+    </div>
+  </div>`;
+}
+
+// ── CALIBRATION VIEW ──
+function renderCalibration(cal) {
+  return `
+  <div class="page-hdr">
+    <div><div class="page-title">Edge Calibration</div><div class="page-sub">Are your probability assessments better than the market's?</div></div>
+    <div class="hdr-actions">
+      <button class="btn btn-sm" onclick="exportCSV('calibration')">↓ Export CSV</button>
+      <button class="btn btn-sm btn-primary" onclick="openModal('addCalibration')">+ Log Outcome</button>
+    </div>
+  </div>
+
+  <div class="card" style="margin-bottom:14px">
+    <div class="card-hdr"><div class="card-title">Performance Summary</div></div>
+    <div class="cal-grid">
+      <div class="cal-stat"><div class="cal-val">${cal.total}</div><div class="cal-lbl">Total Assessed</div></div>
+      <div class="cal-stat"><div class="cal-val">${cal.resolved}</div><div class="cal-lbl">Resolved</div></div>
+      <div class="cal-stat"><div class="cal-val" style="color:${cal.myAccuracy>cal.marketAccuracy?"var(--green)":"var(--red)"}">${cal.myAccuracy?cal.myAccuracy+"%":"—"}</div><div class="cal-lbl">My Accuracy</div></div>
+      <div class="cal-stat"><div class="cal-val">${cal.marketAccuracy?cal.marketAccuracy+"%":"—"}</div><div class="cal-lbl">Market Accuracy</div></div>
+      <div class="cal-stat"><div class="cal-val" style="color:var(--green)">${cal.avgGapWin!=="—"?"+"+cal.avgGapWin+"pp":"—"}</div><div class="cal-lbl">Avg Gap (Wins)</div></div>
+      <div class="cal-stat"><div class="cal-val" style="color:var(--red)">${cal.avgGapLoss!=="—"?cal.avgGapLoss+"pp":"—"}</div><div class="cal-lbl">Avg Gap (Losses)</div></div>
+    </div>
+    ${cal.resolved>0?`<div style="padding:0 16px 14px">
+      <div style="font-size:10px;color:var(--t3);margin-bottom:6px">My accuracy vs market accuracy</div>
+      <div class="heat-bar"><div class="heat-fill" style="width:${cal.myAccuracy}%;background:var(--blue)"></div></div>
+      <div style="font-size:10px;color:var(--t3);margin-top:4px">Market: ${cal.marketAccuracy}% · Mine: ${cal.myAccuracy}% · Edge: ${cal.myAccuracy-cal.marketAccuracy>=0?"+":""}${cal.myAccuracy-cal.marketAccuracy}pp</div>
+    </div>`:""}
+  </div>
+
+  <div class="card">
+    <div class="card-hdr"><div class="card-title">Calibration Log (${APP.state.calibrationLog.length})</div></div>
+    <div class="tbl-wrap">
+      <table>
+        <thead><tr>
+          <th>Ticker</th><th class="r">PDUFA</th><th class="r">Market %</th><th class="r">My %</th>
+          <th class="r">Gap</th><th>Outcome</th><th class="r">Stock Move</th><th>Entered</th>
+        </tr></thead>
+        <tbody>
+          ${APP.state.calibrationLog.map(l => {
+            const gap = l.myAssessedProb - l.marketImpliedProb;
+            const correct = (l.myAssessedProb>=50 && l.outcome==="Approved") || (l.myAssessedProb<50 && l.outcome!=="Approved");
+            return `<tr>
+              <td class="mono" style="font-weight:700">${l.ticker}</td>
+              <td class="r" style="font-size:11px">${fmtDate(l.pdufaDate)}</td>
+              <td class="r mono">${l.marketImpliedProb}%</td>
+              <td class="r mono">${l.myAssessedProb}%</td>
+              <td class="r" style="font-weight:700;font-family:'JetBrains Mono',monospace;color:${gapColor(gap)}">${gap>=0?"+":""}${gap}pp</td>
+              <td><span class="tag" style="background:${l.outcome==="Approved"?"var(--green-bg)":"var(--red-bg)"};color:${l.outcome==="Approved"?"var(--green)":"var(--red)"}">${l.outcome}</span>
+              ${correct?` <span style="font-size:9px;color:var(--green)">✓</span>`:` <span style="font-size:9px;color:var(--red)">✗</span>`}</td>
+              <td class="r mono" style="color:${l.stockMove>=0?"var(--green)":"var(--red)"}">${l.stockMove>=0?"+":""}${l.stockMove}%</td>
+              <td>${l.entered?`<span class="tag" style="background:var(--blue-bg);color:var(--blue)">Yes</span>`:`<span class="tag" style="background:var(--gray-bg);color:var(--t3)">No</span>`}</td>
+            </tr>`;
+          }).join("")}
+          ${APP.state.calibrationLog.length===0?`<tr><td colspan="8"><div class="empty"><div class="empty-icon">🎯</div>No resolved catalysts logged yet</div></td></tr>`:""}
+        </tbody>
+      </table>
+    </div>
+  </div>`;
+}
+
+// ── NOTES VIEW ──
+function renderNotes() {
+  const notes = APP.state.resolutionNotes.sort((a,b) => b.date.localeCompare(a.date));
+  return `
+  <div class="page-hdr">
+    <div><div class="page-title">Resolution Notes</div><div class="page-sub">Post-trade analysis — how the strategy improves</div></div>
+    <div class="hdr-actions">
+      <button class="btn btn-sm btn-primary" onclick="openModal('addNote')">+ Add Note</button>
+    </div>
+  </div>
+  ${notes.map(n => `
+    <div class="note-card">
+      <div class="note-meta">
+        <div><span class="note-ticker">${n.ticker}</span> · ${fmtDate(n.pdufaDate)}
+          <span class="note-outcome tag" style="background:${n.outcome==="Approved"?"var(--green-bg)":"var(--red-bg)"};color:${n.outcome==="Approved"?"var(--green)":"var(--red)"}">${n.outcome}</span>
+          <span style="font-size:11px;color:${n.stockMove>=0?"var(--green)":"var(--red)"};font-weight:600;margin-left:4px">${n.stockMove>=0?"+":""}${n.stockMove}%</span>
+        </div>
+        <span class="note-date">${fmtDate(n.date)}</span>
+      </div>
+      ${[
+        {l:"✓ Got Right",t:n.gotRight,c:"var(--green)"},
+        {l:"✗ Missed",t:n.missed,c:"var(--red)"},
+        {l:"→ Would Do Differently",t:n.wouldDo,c:"var(--amber)"},
+        {l:"⚡ Framework Update",t:n.framework,c:"var(--blue)"}
+      ].filter(s=>s.t).map(s=>`<div style="margin-bottom:5px"><span style="font-size:10px;font-weight:600;color:${s.c}">${s.l}:</span> <span class="note-text">${s.t}</span></div>`).join("")}
+    </div>
+  `).join("")}
+  ${notes.length===0?`<div class="card"><div class="empty"><div class="empty-icon">📝</div>No resolution notes yet. Add your first after a PDUFA resolves.</div></div>`:""}`;
+}
+
+// ── AI VIEW ──
+let aiQuery = "", aiResponse = "", aiLoading = false;
+
+function renderAI() {
+  const qs = ["What should I do this week?","Which position has the best risk/reward?","Portfolio heat assessment","Where is my edge widest right now?","Capital allocation check"];
+  return `
+  <div class="page-hdr">
+    <div><div class="page-title">AI Analyst</div><div class="page-sub">Claude-powered strategy analysis</div></div>
+  </div>
+  <div class="card">
+    <div class="card-hdr"><div class="card-title">Ask the Analyst</div></div>
+    <div style="padding:16px">
+      <div style="display:flex;gap:8px;margin-bottom:10px">
+        <input id="aiQ" style="flex:1;padding:8px 12px;background:var(--bg);border:1px solid var(--border);border-radius:6px;color:var(--t1);font-size:12px;font-family:'Sora',sans-serif;outline:none" value="${aiQuery.replace(/"/g,"&quot;")}" placeholder="Ask about positions, probability gaps, capital allocation..." onkeydown="if(event.key==='Enter')submitAI()"/>
+        <button class="btn btn-primary" onclick="submitAI()" ${aiLoading?"disabled":""}>${aiLoading?"Analyzing...":"Analyze"}</button>
+      </div>
+      <div style="display:flex;gap:5px;flex-wrap:wrap;margin-bottom:${aiResponse?"12px":"0"}">
+        ${qs.map(q=>`<button class="btn btn-sm" onclick="document.getElementById('aiQ').value='${q.replace(/'/g,"\\'")}';aiQuery='${q.replace(/'/g,"\\'")}'">${q}</button>`).join("")}
+      </div>
+      ${aiResponse?`<div style="background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:14px;font-size:12px;color:var(--t2);line-height:1.7;font-family:'JetBrains Mono',monospace;white-space:pre-wrap;max-height:400px;overflow-y:auto">${aiResponse.replace(/</g,"&lt;").replace(/>/g,"&gt;")}</div>`:""}
+    </div>
+  </div>`;
+}
+
+async function submitAI() {
+  const inp = document.getElementById("aiQ");
+  if (inp) aiQuery = inp.value;
+  if (!aiQuery.trim()) return;
+  aiLoading = true; aiResponse = ""; render();
+  const metrics = calcPortfolioMetrics();
+  const cal = calcCalibration();
+  const ctx = `Portfolio: ${fmt(metrics.deployed)} deployed, ${fmt(metrics.pnl)} P&L, ${fmt(metrics.heatTotal)} heat.\n\nPositions:\n${APP.state.positions.map(p=>{
+    const b=calcBlended(p.tranches);
+    const gap=calcGap(p.marketImpliedProb,p.myAssessedProb);
+    const ev=calcEV(p.myAssessedProb,p.upside,p.downside);
+    return `${p.ticker}: ${p.drug} PDUFA ${p.pdufaDate}. Gap: ${gap}pp. EV: ${ev?.toFixed(1)}%. ${b?`${b.totalShares}sh @${fmt(b.avgPrice)}, current ${fmt(p.currentPrice)}.`:""} Stop: ${fmt(p.stopLoss)}.`;
+  }).join("\n")}\n\nCalibration: ${cal.myAccuracy}% accuracy vs ${cal.marketAccuracy}% market (${cal.resolved} resolved).`;
+  try {
+    const res = await fetch(`${PROXY}/ai`, {
+      method:"POST", headers:{"Content-Type":"application/json"},
+      body:JSON.stringify({ system:"You are a PDUFA catalyst trading analyst for an investor named Million. Today is "+today()+". Be concise, direct, institutional. Focus on probability gaps, expected value, and capital allocation.", messages:[{role:"user",content:`${ctx}\n\nQuestion: ${aiQuery}`}] })
+    });
+    const data = await res.json();
+    aiResponse = data.content?.filter(b=>b.type==="text").map(b=>b.text).join("\n") || "No response.";
+  } catch(e) { aiResponse = "Proxy connection error: "+e.message; }
+  aiLoading = false; render();
+}
+
+// ── MODALS ──
+function openModal(type, data) {
+  APP.modal = type;
+  APP.modalData = data || null;
+  render();
+}
+function closeModal() { APP.modal = null; APP.modalData = null; render(); }
+
+function renderModal() {
+  const type = APP.modal;
+  let content = "";
+
+  if (type === "addPosition" || type === "editPosition") {
+    const existing = type === "editPosition" ? APP.state.positions.find(p=>p.id===APP.editId) : null;
+    const prefill = APP.modalData && typeof APP.modalData === "object" ? APP.modalData : {};
+    const p = existing || {};
+
+    content = `
+    <div class="modal-hdr">
+      <div class="modal-title">${existing?"Edit Position":"New Position"}</div>
+      <button class="modal-close" onclick="closeModal()">×</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-grid">
+        <div class="form-group"><label>Ticker *</label><input id="f-ticker" value="${p.ticker||prefill.ticker||""}"/></div>
+        <div class="form-group"><label>Company</label><input id="f-company" value="${p.company||prefill.company||""}"/></div>
+        <div class="form-group"><label>Drug Name</label><input id="f-drug" value="${p.drug||prefill.drug||""}"/></div>
+        <div class="form-group"><label>Indication</label><input id="f-indication" value="${p.indication||prefill.indication||""}"/></div>
+        <div class="form-group"><label>PDUFA Date *</label><input type="date" id="f-pdufa" value="${p.pdufaDate||prefill.pdufaDate||""}"/></div>
+        <div class="form-group"><label>Market Cap</label>
+          <select id="f-mktcap">
+            ${["micro","small","mid","large"].map(v=>`<option value="${v}" ${(p.marketCap||"mid")===v?"selected":""}>${v.charAt(0).toUpperCase()+v.slice(1)}</option>`).join("")}
+          </select>
+        </div>
+
+        <div class="form-group"><label>Market Implied Probability (%)</label><input type="number" id="f-mip" value="${p.marketImpliedProb||""}" min="0" max="100" oninput="updateEVPreview()"/><div class="form-hint">From options market or stock behavior</div></div>
+        <div class="form-group"><label>My Assessed Probability (%)</label><input type="number" id="f-myp" value="${p.myAssessedProb||""}" min="0" max="100" oninput="updateEVPreview()"/></div>
+        <div class="form-group"><label>Upside on Approval (%)</label><input type="number" id="f-up" value="${p.upside||""}" oninput="updateEVPreview()"/></div>
+        <div class="form-group"><label>Downside on Rejection (%)</label><input type="number" id="f-down" value="${p.downside||""}" placeholder="e.g. -50" oninput="updateEVPreview()"/></div>
+
+        <div class="form-group full">
+          <div class="ev-preview" id="ev-preview">
+            <div class="ev-preview-title">Expected Value Preview</div>
+            <div class="ev-preview-val" id="ev-val">—</div>
+            <div class="ev-preview-sub" id="ev-sub">Fill in probabilities and up/downside</div>
+            <div class="gap-preview" id="gap-preview"></div>
+          </div>
+        </div>
+
+        <div class="form-group"><label>Stop Loss Price</label><input type="number" id="f-stop" value="${p.stopLoss||""}"/></div>
+        <div class="form-group"><label>Current Price</label><input type="number" id="f-cur" value="${p.currentPrice||livePrices[p.ticker||prefill.ticker||""]||""}"/></div>
+      </div>
+
+      <div style="margin:14px 0 8px"><div style="font-size:10px;font-weight:600;color:var(--t2);text-transform:uppercase;letter-spacing:.06em">Tranches (up to 3)</div></div>
+      ${[0,1,2].map(i => {
+        const t = (p.tranches||[])[i] || {};
+        return `<div class="tranche-row">
+          <div class="form-group"><label>T${i+1} Date</label><input type="date" id="f-t${i}-date" value="${t.date||""}"/></div>
+          <div class="form-group"><label>Price</label><input type="number" id="f-t${i}-price" value="${t.price||""}"/></div>
+          <div class="form-group"><label>Shares</label><input type="number" id="f-t${i}-shares" value="${t.shares||""}"/></div>
+          <div style="font-size:10px;color:var(--t3);padding-bottom:8px">${t.price&&t.shares?fmt(parseFloat(t.price)*parseFloat(t.shares)):""}</div>
+        </div>`;
+      }).join("")}
+
+      <div class="form-group" style="margin-top:4px">
+        <label>Notes / Thesis</label>
+        <textarea id="f-notes">${p.notes||""}</textarea>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn" onclick="closeModal()">Cancel</button>
+      <button class="btn btn-primary" onclick="savePosition('${existing?.id||""}')">${existing?"Update":"Add Position"}</button>
+    </div>`;
+  }
+
+  else if (type === "closePosition") {
+    const p = APP.state.positions.find(p=>p.id===APP.editId);
+    content = `
+    <div class="modal-hdr"><div class="modal-title">Close Position — ${p?.ticker}</div><button class="modal-close" onclick="closeModal()">×</button></div>
+    <div class="modal-body">
+      <div class="form-grid">
+        <div class="form-group"><label>Exit Date</label><input type="date" id="f-exit-date" value="${today()}"/></div>
+        <div class="form-group"><label>Exit Price</label><input type="number" id="f-exit-price"/></div>
+        <div class="form-group full"><label>Exit Trigger</label>
+          <select id="f-exit-trigger">
+            ${["PDUFA Approval","PDUFA Rejection (CRL)","Stop Loss Hit","Thesis Changed","Run-up Exit (pre-PDUFA)","Other"].map(v=>`<option>${v}</option>`).join("")}
+          </select>
+        </div>
+        <div class="form-group full"><label>Realized P&L Notes</label><textarea id="f-exit-notes"></textarea></div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn" onclick="closeModal()">Cancel</button>
+      <button class="btn btn-primary" onclick="closePosition('${p?.id}')">Close Position</button>
+    </div>`;
+  }
+
+  else if (type === "addWatchlist") {
+    content = `
+    <div class="modal-hdr"><div class="modal-title">Add to Watchlist</div><button class="modal-close" onclick="closeModal()">×</button></div>
+    <div class="modal-body">
+      <div class="form-grid">
+        <div class="form-group"><label>Ticker *</label><input id="wf-ticker"/></div>
+        <div class="form-group"><label>Company</label><input id="wf-company"/></div>
+        <div class="form-group"><label>Drug</label><input id="wf-drug"/></div>
+        <div class="form-group"><label>Indication</label><input id="wf-indication"/></div>
+        <div class="form-group"><label>PDUFA Date *</label><input type="date" id="wf-pdufa"/></div>
+        <div class="form-group"></div>
+        <div class="form-group"><label>Market Implied Prob (%)</label><input type="number" id="wf-mip" min="0" max="100"/></div>
+        <div class="form-group"><label>My Assessed Prob (%)</label><input type="number" id="wf-myp" min="0" max="100"/></div>
+        <div class="form-group"><label>Upside on Approval (%)</label><input type="number" id="wf-up"/></div>
+        <div class="form-group"><label>Downside on Rejection (%)</label><input type="number" id="wf-down" placeholder="e.g. -50"/></div>
+        <div class="form-group full"><label>Notes</label><textarea id="wf-notes"></textarea></div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn" onclick="closeModal()">Cancel</button>
+      <button class="btn btn-primary" onclick="saveWatchlist()">Add to Watchlist</button>
+    </div>`;
+  }
+
+  else if (type === "addCalibration") {
+    content = `
+    <div class="modal-hdr"><div class="modal-title">Log Resolved Catalyst</div><button class="modal-close" onclick="closeModal()">×</button></div>
+    <div class="modal-body">
+      <div class="form-grid">
+        <div class="form-group"><label>Ticker *</label><input id="cf-ticker"/></div>
+        <div class="form-group"><label>PDUFA Date</label><input type="date" id="cf-pdufa"/></div>
+        <div class="form-group"><label>Market Implied Prob (%)</label><input type="number" id="cf-mip" min="0" max="100"/></div>
+        <div class="form-group"><label>My Assessed Prob (%)</label><input type="number" id="cf-myp" min="0" max="100"/></div>
+        <div class="form-group"><label>Outcome</label>
+          <select id="cf-outcome"><option>Approved</option><option>CRL</option><option>Delayed</option><option>Withdrawn</option></select>
+        </div>
+        <div class="form-group"><label>Stock Move on Day (%)</label><input type="number" id="cf-move" placeholder="e.g. -49 or +23"/></div>
+        <div class="form-group"><label>Entered Position?</label>
+          <select id="cf-entered"><option value="true">Yes</option><option value="false">No</option></select>
+        </div>
+        <div class="form-group"></div>
+        <div class="form-group full"><label>Notes</label><textarea id="cf-notes"></textarea></div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn" onclick="closeModal()">Cancel</button>
+      <button class="btn btn-primary" onclick="saveCalibration()">Log Outcome</button>
+    </div>`;
+  }
+
+  else if (type === "addNote") {
+    content = `
+    <div class="modal-hdr"><div class="modal-title">Post-Resolution Note</div><button class="modal-close" onclick="closeModal()">×</button></div>
+    <div class="modal-body">
+      <div class="form-grid">
+        <div class="form-group"><label>Ticker *</label><input id="nf-ticker"/></div>
+        <div class="form-group"><label>PDUFA Date</label><input type="date" id="nf-pdufa"/></div>
+        <div class="form-group"><label>Outcome</label>
+          <select id="nf-outcome"><option>Approved</option><option>CRL</option><option>Delayed</option></select>
+        </div>
+        <div class="form-group"><label>Stock Move (%)</label><input type="number" id="nf-move" placeholder="e.g. +23 or -49"/></div>
+        <div class="form-group full"><label>What I Got Right</label><textarea id="nf-right"></textarea></div>
+        <div class="form-group full"><label>What I Missed</label><textarea id="nf-missed"></textarea></div>
+        <div class="form-group full"><label>Would Do Differently</label><textarea id="nf-diff"></textarea></div>
+        <div class="form-group full"><label>Framework Update</label><textarea id="nf-framework"></textarea></div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn" onclick="closeModal()">Cancel</button>
+      <button class="btn btn-primary" onclick="saveNote()">Save Note</button>
+    </div>`;
+  }
+
+  return `<div class="modal-overlay" onclick="if(event.target.classList.contains('modal-overlay'))closeModal()"><div class="modal">${content}</div></div>`;
+}
+
+// ── MODAL ACTIONS ──
+function updateEVPreview() {
+  const mip = parseFloat(document.getElementById("f-mip")?.value);
+  const myp = parseFloat(document.getElementById("f-myp")?.value);
+  const up = parseFloat(document.getElementById("f-up")?.value);
+  const down = parseFloat(document.getElementById("f-down")?.value);
+  const evEl = document.getElementById("ev-val");
+  const subEl = document.getElementById("ev-sub");
+  const gapEl = document.getElementById("gap-preview");
+  if (!evEl) return;
+  const ev = calcEV(myp, up, down);
+  const gap = calcGap(mip, myp);
+  evEl.textContent = ev !== null ? `${ev>=0?"+":""}${ev.toFixed(1)}%` : "—";
+  evEl.style.color = ev > 0 ? "var(--green)" : "var(--red)";
+  if (ev !== null) subEl.textContent = ev > 0 && gap >= 10 ? "✓ Both conditions met — high conviction entry" : ev > 0 ? "EV positive but gap may be insufficient" : "EV negative — caution";
+  if (gap !== null && gapEl) {
+    gapEl.textContent = `Gap: ${gap>=0?"+":""}${gap}pp (Market: ${mip}% → Mine: ${myp}%)`;
+    gapEl.style.color = gapColor(gap);
+  }
+}
+
+// savePosition is defined above as async function with server sync
+
+function closePosition(id) {
+  const g = document.getElementById.bind(document);
+  const p = APP.state.positions.find(p=>p.id===id);
+  if (!p) return;
+  p.exitDate = g("f-exit-date")?.value || today();
+  p.exitPrice = parseFloat(g("f-exit-price")?.value) || "";
+  p.exitTrigger = g("f-exit-trigger")?.value || "";
+  p.status = "closed";
+  const b = calcBlended(p.tranches);
+  if (b && p.exitPrice) p.realizedPnl = ((parseFloat(p.exitPrice)-b.avgPrice)*b.totalShares).toFixed(2);
+  save(); closeModal(); render();
+}
+
+function saveWatchlist() {
+  const g = id => document.getElementById(id);
+  const ticker = g("wf-ticker")?.value?.trim().toUpperCase();
+  if (!ticker) return alert("Ticker required");
+  APP.state.watchlist.push({
+    id:`${ticker.toLowerCase()}-w-${Date.now()}`,
+    ticker, pdufaDate: g("wf-pdufa")?.value||"",
+    company: g("wf-company")?.value||"",
+    drug: g("wf-drug")?.value||"",
+    indication: g("wf-indication")?.value||"",
+    marketImpliedProb: parseFloat(g("wf-mip")?.value)||null,
+    myAssessedProb: parseFloat(g("wf-myp")?.value)||null,
+    upside: parseFloat(g("wf-up")?.value)||null,
+    downside: parseFloat(g("wf-down")?.value)||null,
+    notes: g("wf-notes")?.value||"",
+    passed:false
+  });
+  save(); closeModal(); render();
+}
+
+function markPassed(id) {
+  const w = APP.state.watchlist.find(w=>w.id===id);
+  if (!w) return;
+  const reason = prompt("Why are you passing on this opportunity?");
+  if (reason === null) return;
+  w.passed = true;
+  w.passedReason = reason;
+  save(); render();
+}
+
+function convertToPosition(id) {
+  const w = APP.state.watchlist.find(w=>w.id===id);
+  if (!w) return;
+  APP.modal = "addPosition";
+  APP.modalData = { ticker:w.ticker, company:w.company, drug:w.drug, indication:w.indication, pdufaDate:w.pdufaDate };
+  APP.editId = null;
+  render();
+}
+
+function saveCalibration() {
+  const g = id => document.getElementById(id);
+  const ticker = g("cf-ticker")?.value?.trim().toUpperCase();
+  if (!ticker) return alert("Ticker required");
+  APP.state.calibrationLog.push({
+    id:`${ticker.toLowerCase()}-cal-${Date.now()}`,
+    ticker, pdufaDate: g("cf-pdufa")?.value||"",
+    marketImpliedProb: parseFloat(g("cf-mip")?.value)||null,
+    myAssessedProb: parseFloat(g("cf-myp")?.value)||null,
+    outcome: g("cf-outcome")?.value||"",
+    stockMove: parseFloat(g("cf-move")?.value)||0,
+    entered: g("cf-entered")?.value==="true",
+    notes: g("cf-notes")?.value||""
+  });
+  save(); closeModal(); render();
+}
+
+function saveNote() {
+  const g = id => document.getElementById(id);
+  const ticker = g("nf-ticker")?.value?.trim().toUpperCase();
+  if (!ticker) return alert("Ticker required");
+  APP.state.resolutionNotes.push({
+    id:`${ticker.toLowerCase()}-note-${Date.now()}`,
+    ticker, pdufaDate: g("nf-pdufa")?.value||"",
+    outcome: g("nf-outcome")?.value||"",
+    stockMove: parseFloat(g("nf-move")?.value)||0,
+    date: today(),
+    gotRight: g("nf-right")?.value||"",
+    missed: g("nf-missed")?.value||"",
+    wouldDo: g("nf-diff")?.value||"",
+    framework: g("nf-framework")?.value||""
+  });
+  save(); closeModal(); render();
+}
+
+// ── ACTIONS ──
+function setView(v) { APP.view=v; render(); }
+
+// ── ETRADE INTEGRATION ──
+let etradeAuthorized = false;
+let etradeAuthUrl = null;
+
+async function checkEtradeStatus() {
+  try {
+    const res = await fetch(`${PROXY}/etrade/status`);
+    const data = await res.json();
+    etradeAuthorized = data.authorized;
+    const dot = document.getElementById('etrade-dot');
+    const label = document.getElementById('etrade-label');
+    if (dot && label) {
+      dot.style.background = etradeAuthorized ? 'var(--green)' : 'var(--amber)';
+      label.textContent = etradeAuthorized ? 'E*TRADE Live' : 'E*TRADE — tap to connect';
+    }
+  } catch(e) {}
+}
+
+async function etradeAuth() {
+  if (etradeAuthorized) {
+    // Already authorized — trigger a manual sync
+    try {
+      const res = await fetch(`${PROXY}/etrade/sync`, { method: 'POST' });
+      const data = await res.json();
+      alert(`Synced ${data.synced} positions from E*TRADE`);
+      syncFromServer();
+    } catch(e) { alert('Sync failed: ' + e.message); }
+    return;
+  }
+  // Not authorized — start OAuth flow
+  try {
+    const res = await fetch(`${PROXY}/etrade/auth`);
+    const data = await res.json();
+    etradeAuthUrl = data.authUrl;
+    // Open auth URL in new tab
+    window.open(data.authUrl, '_blank');
+    // Prompt for verifier code
+    setTimeout(() => {
+      const code = prompt('Enter the E*TRADE verifier code shown after login:');
+      if (!code) return;
+      fetch(`${PROXY}/etrade/authorize`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ verifier: code.trim() })
+      }).then(r => r.json()).then(d => {
+        if (d.success) {
+          etradeAuthorized = true;
+          checkEtradeStatus();
+          alert('E*TRADE connected! Positions will sync every 15 minutes during market hours.');
+        } else {
+          alert('Authorization failed: ' + (d.error || 'Unknown error'));
+        }
+      });
+    }, 2000);
+  } catch(e) { alert('Auth failed: ' + e.message); }
+}
+
+// Check E*TRADE status on load and every 5 minutes
+checkEtradeStatus();
+setInterval(checkEtradeStatus, 5 * 60 * 1000);
+try {
+  render();
+  // Fetch calendar first, then re-render with full data
+  fetchLiveCalendar().then(() => render());
+  fetchLivePrices();
+  // Sync from server-side database
+  syncFromServer();
+  setInterval(fetchLivePrices, 5*60*1000);
+  // Re-fetch calendar every 6 hours
+  setInterval(() => fetchLiveCalendar().then(() => render()), 6*60*60*1000);
+} catch(e) {
+  console.error("Init error:", e);
+  document.getElementById("app").innerHTML = `<div style="padding:40px;font-family:sans-serif;color:#b91c1c"><h2>Dashboard Error</h2><pre>${e.message}</pre><button onclick="location.reload()">Reload</button></div>`;
+}
+</script>
+</body>
+</html>
