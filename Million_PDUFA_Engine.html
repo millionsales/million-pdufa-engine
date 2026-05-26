@@ -296,14 +296,29 @@ async function fetchLivePrices() {
   }
 }
 
-async function fetchLiveCalendar() {
+let calendarFetchError = null;
+async function fetchLiveCalendar(attempt=1) {
   try {
     const res = await fetch(`${PROXY}/pdufa`);
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const data = await res.json();
-    if (data.data && data.data.length > 0) {
+    if (Array.isArray(data?.data) && data.data.length > 0) {
       liveCalendar = data.data;
+      calendarFetchError = null;
+      return;
     }
-  } catch(e) {}
+    // Empty cache — likely server just restarted. Retry once after 4s.
+    if (attempt < 3) {
+      calendarFetchError = `Empty calendar from proxy (attempt ${attempt}). Retrying…`;
+      render();
+      setTimeout(() => fetchLiveCalendar(attempt+1).then(render), 4000);
+      return;
+    }
+    calendarFetchError = "Proxy returned empty calendar after 3 attempts — showing local positions only.";
+  } catch(e) {
+    calendarFetchError = `Calendar fetch failed: ${e.message}`;
+    console.error("fetchLiveCalendar:", e);
+  }
 }
 
 // ── SERVER-SIDE DATABASE SYNC ──
@@ -687,9 +702,14 @@ function renderCalendar() {
     return new Date(a.pdufaDate)-new Date(b.pdufaDate);
   });
 
+  const usingFallback = liveCalendar.length === 0;
+  const subLine = usingFallback
+    ? `<span style="color:var(--red);font-weight:600">⚠ Proxy calendar empty — showing ${filtered.length} from local positions only.</span> ${calendarFetchError||""}`
+    : `${filtered.length} events · Live from EDGAR+ClinicalTrials+seed · Enriched with approval probability`;
+
   return `
   <div class="page-hdr">
-    <div><div class="page-title">PDUFA Calendar</div><div class="page-sub">${filtered.length} events · Live from EDGAR+ClinicalTrials+seed · Enriched with approval probability</div></div>
+    <div><div class="page-title">PDUFA Calendar</div><div class="page-sub">${subLine}</div></div>
     <div class="hdr-actions">
       <button class="btn btn-sm" onclick="fetchLiveCalendar().then(render)">⟳ Refresh</button>
       <button class="btn btn-sm btn-primary" onclick="openModal('addPosition')">+ Add Position</button>
@@ -1405,8 +1425,20 @@ async function etradeAuth() {
     // Already authorized — trigger a manual sync
     try {
       const res = await fetch(`${PROXY}/etrade/sync`, { method: 'POST' });
-      const data = await res.json();
-      alert(`Synced ${data.synced} positions from E*TRADE`);
+      const data = await res.json().catch(()=>({}));
+      if (!res.ok || data.error) {
+        const isTokenExpired = /token_expired|oauth_problem/i.test(data.error||"");
+        if (isTokenExpired) {
+          etradeAuthorized = false;
+          checkEtradeStatus();
+          alert('E*TRADE token expired (resets midnight ET). Tap "E*TRADE —" again to re-authorize.');
+        } else {
+          alert('Sync failed: ' + (data.error || `HTTP ${res.status}`));
+        }
+        return;
+      }
+      const count = data.synced ?? data.count ?? data.positions?.length ?? 0;
+      alert(`Synced ${count} positions from E*TRADE` + (data.updates?.length ? `\n${data.updates.join("\n")}` : ""));
       syncFromServer();
     } catch(e) { alert('Sync failed: ' + e.message); }
     return;
