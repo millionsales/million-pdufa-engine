@@ -796,10 +796,14 @@ function renderCalendar() {
           const dc = d<0?"var(--t3)":d<=7?"var(--red)":d<=21?"var(--amber)":"var(--t1)";
           const prob = e.approvalProbability;
           const probColor = prob>=85?"var(--green)":prob>=75?"var(--blue)":prob>=65?"var(--amber)":"var(--red)";
-          const ev = calcEV(prob, e.estimatedUpside, e.estimatedDownside);
+          // Prefer historical median when bucket has n>=5 for both approval & CRL.
+          const useHist = e.historicalSufficient && e.historicalUpside != null && e.historicalDownside != null;
+          const effUpside = useHist ? e.historicalUpside : e.estimatedUpside;
+          const effDownside = useHist ? e.historicalDownside : e.estimatedDownside;
+          const ev = calcEV(prob, effUpside, effDownside);
           const evColor = ev>0?"var(--green)":"var(--red)";
           const desigs = e.designations || [];
-          const upside = e.estimatedUpside || 0;
+          const upside = effUpside || 0;
 
           // Large-cap detection — by field or by known large-cap companies
           const LARGE_CAP_NAMES = ["merck","pfizer","johnson","abbvie","bristol","eli lilly","amgen","gilead","biogen","regeneron","vertex","astrazeneca","sanofi","gsk","roche","novartis","jazz pharmaceuticals","takeda","alexion"];
@@ -848,7 +852,17 @@ function renderCalendar() {
               ${ev!==null?`<span style="font-size:12px;font-weight:700;font-family:'JetBrains Mono',monospace;color:${evColor}">${ev>=0?"+":""}${ev.toFixed(1)}%</span>`:"<span style='color:var(--t3)'>—</span>"}
             </td>
             <td class="r" style="font-size:10px;font-family:'JetBrains Mono',monospace">
-              ${e.estimatedUpside?`<span style="color:var(--green)">+${e.estimatedUpside}%</span> / <span style="color:var(--red)">${e.estimatedDownside}%</span>`:"—"}
+              ${(() => {
+                // Prefer historical median when n >= 5 for both sides (set server-side via historicalSufficient).
+                const useHistorical = e.historicalSufficient && e.historicalUpside != null && e.historicalDownside != null;
+                const up = useHistorical ? e.historicalUpside : e.estimatedUpside;
+                const down = useHistorical ? e.historicalDownside : e.estimatedDownside;
+                if (up == null || down == null) return "—";
+                const tag = useHistorical
+                  ? `<span title="Median of ${e.historicalNApproved} approvals / ${e.historicalNCRL} CRLs in ${e.historicalBucketCap}-cap${e.historicalBucketTier && e.historicalBucketTier !== "*" ? "/" + e.historicalBucketTier : ""} bucket" style="font-size:8px;color:var(--blue);display:block">historical · n=${e.historicalNApproved}/${e.historicalNCRL}</span>`
+                  : `<span title="Model estimate (default — bucket has <5 historical samples)" style="font-size:8px;color:var(--t3);display:block">model</span>`;
+                return `<span style="color:var(--green)">${up>=0?"+":""}${up}%</span> / <span style="color:var(--red)">${down}%</span>${tag}`;
+              })()}
             </td>
             <td>
               <div style="display:flex;gap:3px;flex-wrap:wrap">
