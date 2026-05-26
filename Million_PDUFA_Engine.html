@@ -670,6 +670,46 @@ function render() {
   document.getElementById("app").innerHTML = html;
 }
 
+// ── SIGNAL REASON ──
+// Returns a single muted-text reason explaining why a calendar row is or isn't actionable.
+// Returns null when no Why label is needed (tier 1/2 actionable, or position/watchlist/passed badge).
+function getSignalReason(ctx) {
+  const { prob, ev, upside, d, isLargeCap, pdufaDate, hasUpsideDownside, eventStatus } = ctx;
+
+  // Past events
+  if (eventStatus === "approved") return "Approved";
+  if (d < 0) return "PDUFA passed";
+  if (d === 0) return "PDUFA today — too late to enter";
+
+  // Missing data
+  if (prob == null) return "Pending enrichment";
+  if (!hasUpsideDownside) return "Awaiting upside/downside estimates";
+
+  // Structural disqualifiers (in priority order)
+  if (isLargeCap) return "Large cap — upside too small for needle-mover";
+  if (prob < 80) return `Below 80% threshold (model ${prob}%)`;
+
+  // Far future — outside both tier windows
+  if (d > 120) {
+    const entryMs = new Date(pdufaDate+"T00:00:00").getTime() - 84*86400000;
+    const entryDate = new Date(entryMs).toISOString().split("T")[0];
+    return `Too far out — entry window opens ${fmtDate(entryDate)}`;
+  }
+
+  // Pipeline window (84 < d ≤ 120): explain which tier-2 gate it misses
+  if (d > 84) {
+    if (prob < 85) return `Pipeline window — needs prob ≥ 85% (got ${prob}%)`;
+    if (ev != null && ev < 100) return `Pipeline window — EV ${ev.toFixed(0)}% below 100% gate`;
+    if (upside < 40) return `Pipeline window — upside ${upside}% below 40% gate`;
+    return "Pipeline window — borderline";
+  }
+
+  // Action window (0 < d ≤ 84): explain which tier-1 gate it misses
+  if (ev != null && ev < 40) return `EV too low — ${ev>=0?"+":""}${ev.toFixed(0)}% doesn't justify binary risk`;
+  if (upside < 25) return `Upside too small — only +${upside}% on approval`;
+  return "Doesn't meet entry criteria";
+}
+
 // ── CALENDAR VIEW ──
 function renderCalendar() {
   const all = liveCalendar.length > 0 ? liveCalendar : [
@@ -817,7 +857,17 @@ function renderCalendar() {
               </div>
             </td>
             <td class="r mono" style="font-size:11px">${price?fmt(price):"—"}</td>
-            <td>${myStatus==="position"?'<span class="tag" style="background:var(--blue-bg);color:var(--blue)">Position</span>':myStatus==="watchlist"?'<span class="tag" style="background:var(--amber-bg);color:var(--amber)">Watchlist</span>':myStatus==="passed"?'<span class="tag" style="background:var(--gray-bg);color:var(--gray)">Passed</span>':'<span class="tag" style="background:var(--border-light);color:var(--t3)">—</span>'}</td>
+            <td>${
+              myStatus==="position"
+                ? '<span class="tag" style="background:var(--blue-bg);color:var(--blue)">Position</span>'
+                : myStatus==="watchlist"
+                  ? '<span class="tag" style="background:var(--amber-bg);color:var(--amber)">Watchlist</span>'
+                  : myStatus==="passed"
+                    ? '<span class="tag" style="background:var(--gray-bg);color:var(--gray)">Passed</span>'
+                    : (tier1 || tier2)
+                      ? '<span style="font-size:10px;color:var(--t3)">—</span>'
+                      : `<div style="font-size:10px;color:var(--t3);line-height:1.35;max-width:160px">${getSignalReason({prob, ev, upside, d, isLargeCap, pdufaDate:e.pdufaDate, hasUpsideDownside: e.estimatedUpside!=null && e.estimatedDownside!=null, eventStatus: e.status})}</div>`
+            }</td>
             <td><button class="btn btn-sm" onclick="openModal('addPosition',${JSON.stringify({ticker:e.ticker,company:e.company,drug:e.drug,indication:e.indication,pdufaDate:e.pdufaDate}).replace(/"/g,'&quot;')})">Track</button></td>
           </tr>`;
         }).join("")}
