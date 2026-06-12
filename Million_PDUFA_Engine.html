@@ -321,6 +321,32 @@ async function fetchLiveCalendar(attempt=1) {
   }
 }
 
+// ── TRADING ENGINE FEED + CALIBRATION ANALYTICS ──
+// Read-only feeds from the proxy. Both degrade silently when unavailable.
+let engineFeed = { available:false, positions:[], byTicker:{}, netValue:null, savedAt:null };
+let calAnalytics = null;
+
+async function fetchEngineFeed() {
+  try {
+    const res = await fetch(`${PROXY}/engine/positions`);
+    const data = await res.json();
+    if (data.engineAvailable) {
+      const byTicker = {};
+      (data.positions||[]).forEach(p => { byTicker[p.sym] = p; });
+      engineFeed = { available:true, positions:data.positions||[], byTicker, netValue:data.netValue, savedAt:data.savedAt };
+    } else {
+      engineFeed = { available:false, positions:[], byTicker:{}, netValue:null, savedAt:null };
+    }
+  } catch(e) { engineFeed.available = false; }
+}
+
+async function fetchCalibrationAnalytics() {
+  try {
+    const res = await fetch(`${PROXY}/analytics/calibration`);
+    if (res.ok) calAnalytics = await res.json();
+  } catch(e) { /* keep prior */ }
+}
+
 // ── SERVER-SIDE DATABASE SYNC ──
 let dbSynced = false;
 let dbSyncing = false;
@@ -488,6 +514,54 @@ function gapBg(gap) {
   return "gap-neg";
 }
 
+// 5-band edge classification, matching the proxy's analytics.js EDGE_BANDS.
+// Prefers the backend's `edge` object (so colors always agree); falls back to
+// computing from a raw gap when offline.
+function edgeBand(gap, backendEdge) {
+  if (backendEdge && backendEdge.color) return backendEdge;
+  if (gap == null || isNaN(gap)) return null;
+  if (gap >= 20)  return { band:"strong",   color:"#16a34a", label:"Strong edge (≥20pt)" };
+  if (gap >= 10)  return { band:"moderate", color:"#65a30d", label:"Moderate edge (10–20pt)" };
+  if (gap >= 5)   return { band:"thin",     color:"#d97706", label:"Thin edge (5–10pt)" };
+  if (gap >= -5)  return { band:"none",     color:"#6b7280", label:"No edge (±5pt)" };
+  return { band:"negative", color:"#dc2626", label:"Negative edge (<−5pt)" };
+}
+
+// Outcome strings are mixed-case across sources ("Approved" from legacy local
+// data, "approved"/"crl" from the backend resolve endpoint). Normalize.
+function isApprovedOutcome(o) { return /approv/i.test(o || ""); }
+function outcomeLabel(o) {
+  if (!o) return "—";
+  if (isApprovedOutcome(o)) return "Approved";
+  if (/crl|reject|withdraw|denied/i.test(o)) return "CRL";
+  return o;
+}
+
+// Conviction (0–10, Trading Engine scale) → color.
+function convictionColor(c) {
+  if (c == null) return "var(--t3)";
+  if (c >= 9) return "var(--green)";
+  if (c >= 7) return "var(--blue)";
+  if (c >= 4) return "var(--amber)";
+  return "var(--red)";
+}
+
+// Small "🔗 Engine" badge when the Trading Engine holds this ticker.
+function engineBadge(ticker, engineObj) {
+  // engineObj: position's decorated `.engine` ({held, shares, price, costBasis}) when present,
+  // else fall back to the live engineFeed map.
+  let held = null;
+  if (engineObj && engineObj.held) held = engineObj;
+  else if (engineFeed.byTicker[ticker]) {
+    const e = engineFeed.byTicker[ticker];
+    held = { shares:e.shares, price:e.price, costBasis:e.cost };
+  }
+  if (!held) return "";
+  const sh = held.shares != null ? `${(+held.shares).toLocaleString()}sh` : "";
+  const basis = held.costBasis != null ? ` @ ${fmt(held.costBasis)}` : "";
+  return `<span class="tag" title="Held by Million Trading Engine: ${sh}${basis}" style="background:#ecfdf5;color:#047857;border:1px solid #a7f3d0">🔗 Engine ${sh}</span>`;
+}
+
 function posStatus(p) {
   if (p.status === "approved") return {l:"Approved",c:"var(--green)",bg:"var(--green-bg)"};
   if (p.status === "active") return {l:"Active",c:"var(--blue)",bg:"var(--blue-bg)"};
@@ -531,7 +605,7 @@ function calcCalibration() {
   let myCorrect = 0, marketCorrect = 0, gapWins = [], gapLosses = [];
 
   resolved.forEach(l => {
-    const approved = l.outcome === "Approved";
+    const approved = isApprovedOutcome(l.outcome);
     const myPredApprove = l.myAssessedProb >= 50;
     const mktPredApprove = l.marketImpliedProb >= 50;
     if (myPredApprove === approved) myCorrect++;
@@ -616,7 +690,7 @@ function render() {
     <div class="sb-brand">
       <div class="sb-mark">M</div>
       <div class="sb-title">Million PDUFA</div>
-      <div class="sb-sub">Engine v2.0</div>
+      <div class="sb-sub">Engine v2.1</div>
     </div>
     <div class="sb-nav">
       <div class="sb-section">Strategy</div>
@@ -631,6 +705,10 @@ function render() {
       <div class="sb-status-row" id="etrade-status-row" style="cursor:pointer" onclick="etradeAuth()">
         <div class="sdot" id="etrade-dot" style="background:var(--t3)"></div>
         <span id="etrade-label">E*TRADE —</span>
+      </div>
+      <div class="sb-status-row" title="${engineFeed.available?`Net value ${fmt(engineFeed.netValue)} · as of ${engineFeed.savedAt?new Date(engineFeed.savedAt).toLocaleTimeString("en-US",{hour:"2-digit",minute:"2-digit"}):"—"}`:"Trading Engine feed unavailable"}>
+        <div class="sdot ${engineFeed.available?"ok":"err"}"></div>
+        ${engineFeed.available?`Engine sync · ${engineFeed.positions.length} held`:"Engine offline"}
       </div>
     </div>
   </div>
@@ -832,6 +910,8 @@ function renderCalendar() {
               ${tier1?`<span style="font-size:8px;color:var(--green);display:block;margin-top:1px">${sizingTier}</span>`:""}
               ${tier2?`<span style="font-size:8px;color:var(--blue);display:block;margin-top:1px">Plan entry — window opens in ${d-84}d</span>`:""}
               <span style="font-size:10px;color:var(--t3);display:block">${e.company||""}</span>
+              ${e.engineHolds?`<span title="Held by Million Trading Engine: ${(+e.engineHolds.shares).toLocaleString()}sh @ ${fmt(e.engineHolds.costBasis)}" style="font-size:8px;font-weight:700;color:#047857;display:block;margin-top:1px">🔗 Engine ${(+e.engineHolds.shares).toLocaleString()}sh</span>`:""}
+              ${e.pastDue?`<span style="font-size:8px;font-weight:700;color:var(--amber);display:block;margin-top:1px">⏱ Past due</span>`:""}
             </td>
             <td>
               <div style="font-weight:500;font-size:12px">${e.drug||"—"}</div>
@@ -846,7 +926,11 @@ function renderCalendar() {
               ${prob?`<span style="font-size:12px;font-weight:700;font-family:'JetBrains Mono',monospace;color:${probColor}">${prob}%</span>`:`<span style="color:var(--t3)">—</span>`}
             </td>
             <td class="r">
-              ${e.probabilityGap!=null?`<span style="font-size:13px;font-weight:800;font-family:'JetBrains Mono',monospace;color:${e.probabilityGap>=10?"var(--green)":e.probabilityGap>=0?"var(--amber)":"var(--red)"}">${e.probabilityGap>=0?"+":""}${e.probabilityGap}pp</span>`:`<span style="color:var(--t3)">—</span>`}
+              ${(() => {
+                if (e.probabilityGap == null) return `<span style="color:var(--t3)">—</span>`;
+                const band = edgeBand(e.probabilityGap, e.edge);
+                return `<span title="${band?band.label:""}" style="font-size:13px;font-weight:800;font-family:'JetBrains Mono',monospace;color:${band?band.color:"var(--t2)"}">${e.probabilityGap>=0?"+":""}${e.probabilityGap}pp</span>`;
+              })()}
             </td>
             <td class="r">
               ${ev!==null?`<span style="font-size:12px;font-weight:700;font-family:'JetBrains Mono',monospace;color:${evColor}">${ev>=0?"+":""}${ev.toFixed(1)}%</span>`:"<span style='color:var(--t3)'>—</span>"}
@@ -909,23 +993,48 @@ function renderPositions() {
 }
 
 function renderPositionCard(p) {
+  // Prefer backend-decorated fields (probabilityGap, edge, scoring, trancheSummary,
+  // engine) when present; fall back to local computation when offline.
+  const ts = p.trancheSummary;
   const b = calcBlended(p.tranches);
-  const gap = calcGap(p.marketImpliedProb, p.myAssessedProb);
-  const ev = calcEV(p.myAssessedProb, p.upside, p.downside);
-  const curPrice = parseFloat(p.currentPrice) || (b ? b.avgPrice : 0);
-  const pnl = b ? (curPrice - b.avgPrice) * b.totalShares : null;
-  const pnlPct = b ? ((curPrice - b.avgPrice) / b.avgPrice) * 100 : null;
+  const blendedBasis = ts && ts.blendedCostBasis != null ? ts.blendedCostBasis : (b ? b.avgPrice : null);
+  const totalShares = ts && ts.totalShares != null ? ts.totalShares : (b ? b.totalShares : 0);
+  const deployed = ts && ts.totalCapital != null ? ts.totalCapital : (b ? b.totalCost : 0);
+
+  const gap = p.probabilityGap != null ? p.probabilityGap : calcGap(p.marketImpliedProb, p.myAssessedProb);
+  const band = edgeBand(gap, p.edge);
+  const ev = p.scoring && p.scoring.ev != null ? p.scoring.ev : calcEV(p.myAssessedProb, p.upside, p.downside);
+  const conviction = p.scoring && p.scoring.conviction != null ? p.scoring.conviction : null;
+
+  const curPrice = parseFloat(p.currentPrice) || blendedBasis || 0;
+  const pnl = ts && ts.unrealizedPnl != null ? ts.unrealizedPnl
+            : (blendedBasis ? (curPrice - blendedBasis) * totalShares : null);
+  const pnlPct = ts && ts.unrealizedPnlPct != null ? ts.unrealizedPnlPct
+            : (blendedBasis ? ((curPrice - blendedBasis) / blendedBasis) * 100 : null);
   const st = posStatus(p);
   const d = getDays(p.pdufaDate);
-  const gapClass = gap >= 10 ? "gap-pos-num" : gap >= 0 ? "gap-neu-num" : "gap-neg-num";
-  const evClass = ev > 0 ? "ev-pos" : "ev-neg";
   const isUrgent = d >= 0 && d <= 14 && (p.status === "active" || p.status === "approved");
+
+  const metrics = [
+    {l:"Probability Gap",v:gap!==null?`${gap>=0?"+":""}${gap}pp`:"—",c:band?band.color:gapColor(gap),
+      hint:band?band.label:`Market ${p.marketImpliedProb}% → Mine ${p.myAssessedProb}%`},
+    {l:"Expected Value",v:ev!==null?`${ev>=0?"+":""}${(+ev).toFixed(1)}%`:"—",c:ev>0?"var(--green)":"var(--red)",
+      hint:`Up +${p.upside}% / Down ${p.downside}%`},
+    {l:"Conviction",v:conviction!=null?(+conviction).toFixed(1):"—",c:convictionColor(conviction),
+      hint:conviction!=null?`${p.scoring.daysToResolution!=null?p.scoring.daysToResolution+"d · ":""}heat ${(+p.scoring.heatPct).toFixed(1)}%`:"Trading Engine scale 0–10"},
+    {l:"Unrealized P&L",v:pnl!==null?`${pnl>=0?"+":""}${fmt(pnl)}`:"—",c:pnl>=0?"var(--green)":"var(--red)",
+      hint:pnlPct!==null?fmtPct(pnlPct):""},
+    {l:"Stop Loss",v:fmt(p.stopLoss),c:"var(--red)",
+      hint:blendedBasis?`Risk ${fmt(totalShares*(blendedBasis-(parseFloat(p.stopLoss)||0)))}`:""}
+  ];
 
   return `<div class="card" style="${isUrgent?"border-color:var(--red-border)":""}">
     <div class="card-hdr">
-      <div style="display:flex;align-items:center;gap:10px">
+      <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
         <span style="font-size:15px;font-weight:700;font-family:'JetBrains Mono',monospace;color:var(--t1)">${p.ticker}</span>
         <span class="tag" style="color:${st.c};background:${st.bg}">${st.l}</span>
+        ${band?`<span class="tag" title="${band.label}" style="background:${band.color}22;color:${band.color};border:1px solid ${band.color}55">${band.band}</span>`:""}
+        ${engineBadge(p.ticker, p.engine)}
         ${isUrgent?`<span class="tag" style="background:var(--red-bg);color:var(--red)">⚡ ${d}d to PDUFA</span>`:`<span style="font-size:10px;color:var(--t3)">${d<0?"Resolved":d+"d to PDUFA"}</span>`}
         <span style="font-size:11px;color:var(--t2)">${p.drug} · ${p.indication}</span>
       </div>
@@ -934,38 +1043,67 @@ function renderPositionCard(p) {
         <button class="btn btn-sm" onclick="openModal('closePosition','${p.id}')">Close</button>
       </div>
     </div>
-    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:0;border-bottom:1px solid var(--border)">
-      ${[
-        {l:"Probability Gap",v:gap!==null?`${gap>=0?"+":""}${gap}pp`:"—",c:gapColor(gap),hint:`Market: ${p.marketImpliedProb}% → Mine: ${p.myAssessedProb}%`},
-        {l:"Expected Value",v:ev!==null?`${ev>=0?"+":""}${ev.toFixed(1)}%`:"—",c:ev>0?"var(--green)":"var(--red)",hint:`Up: +${p.upside}% / Down: ${p.downside}%`},
-        {l:"Unrealized P&L",v:pnl!==null?`${pnl>=0?"+":""}${fmt(pnl)}`:"—",c:pnl>=0?"var(--green)":"var(--red)",hint:pnlPct!==null?fmtPct(pnlPct):""},
-        {l:"Stop Loss",v:fmt(p.stopLoss),c:"var(--red)",hint:b?`Risk: ${fmt(b.totalShares*(b.avgPrice-(parseFloat(p.stopLoss)||0)))}`:""}
-      ].map(m=>`<div style="padding:12px 16px;border-right:1px solid var(--border-light)">
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(110px,1fr));gap:0;border-bottom:1px solid var(--border)">
+      ${metrics.map(m=>`<div style="padding:12px 16px;border-right:1px solid var(--border-light)">
         <div style="font-size:9px;font-weight:600;color:var(--t3);text-transform:uppercase;letter-spacing:.08em;margin-bottom:4px">${m.l}</div>
         <div style="font-size:18px;font-weight:800;font-family:'JetBrains Mono',monospace;color:${m.c}">${m.v}</div>
         <div style="font-size:10px;color:var(--t3);margin-top:2px">${m.hint}</div>
       </div>`).join("")}
     </div>
     <div style="padding:12px 16px">
-      <div style="font-size:9px;font-weight:600;color:var(--t3);text-transform:uppercase;letter-spacing:.08em;margin-bottom:8px">Tranches</div>
-      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px">
-        ${p.tranches.map((t,i) => {
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+        <div style="font-size:9px;font-weight:600;color:var(--t3);text-transform:uppercase;letter-spacing:.08em">Tranches${ts?` · ${ts.count}`:""}</div>
+        <button class="btn btn-sm btn-primary" style="font-size:10px;padding:2px 8px" onclick="addTranche('${p.id}')">+ Add Tranche</button>
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:8px">
+        ${(p.tranches||[]).map((t,i) => {
           const filled = t.price && t.shares && parseFloat(t.shares)>0;
-          return `<div style="padding:8px 10px;background:${filled?"var(--blue-bg)":"var(--bg)"};border:1px solid ${filled?"var(--blue-border)":"var(--border)"};border-radius:6px">
+          return `<div style="position:relative;padding:8px 10px;background:${filled?"var(--blue-bg)":"var(--bg)"};border:1px solid ${filled?"var(--blue-border)":"var(--border)"};border-radius:6px">
+            <button title="Remove tranche" onclick="removeTranche('${p.id}',${i})" style="position:absolute;top:4px;right:4px;border:none;background:transparent;color:var(--t3);cursor:pointer;font-size:13px;line-height:1">×</button>
             <div style="font-size:9px;font-weight:700;color:${filled?"var(--blue)":"var(--t3)"};margin-bottom:4px">Tranche ${i+1}</div>
             ${filled?`
               <div style="font-size:11px;font-family:'JetBrains Mono',monospace;color:var(--t1)">${fmt(t.price)} × ${t.shares}sh</div>
-              <div style="font-size:10px;color:var(--t3)">${t.date||""} · ${fmt(parseFloat(t.price)*parseFloat(t.shares))}</div>
+              <div style="font-size:10px;color:var(--t3)">${t.date||""} · ${fmt(t.capital!=null?t.capital:parseFloat(t.price)*parseFloat(t.shares))}</div>
             `:`<div style="font-size:10px;color:var(--t3)">Not deployed</div>`}
           </div>`;
         }).join("")}
       </div>
-      ${b?`<div style="margin-top:8px;padding:6px 10px;background:var(--blue-bg);border-radius:5px;font-size:11px;color:var(--blue);font-weight:600">
-        Blended avg: ${fmt(b.avgPrice)} · ${b.totalShares} shares · ${fmt(b.totalCost)} deployed
+      ${blendedBasis?`<div style="margin-top:8px;padding:6px 10px;background:var(--blue-bg);border-radius:5px;font-size:11px;color:var(--blue);font-weight:600;display:flex;gap:14px;flex-wrap:wrap">
+        <span>Blended avg: <b>${fmt(blendedBasis)}</b></span>
+        <span>${(+totalShares).toLocaleString()} shares</span>
+        <span>${fmt(deployed)} deployed</span>
+        ${ts&&ts.marketValue!=null?`<span>Mkt value ${fmt(ts.marketValue)}</span>`:""}
       </div>`:""}
-      ${p.notes?`<div style="margin-top:10px;font-size:11px;color:var(--t2);line-height:1.5;padding:8px 10px;background:var(--bg);border-radius:5px;border:1px solid var(--border)">${p.notes}</div>`:""}
+      ${p.notes?`<div style="margin-top:10px;font-size:11px;color:var(--t2);line-height:1.5;padding:8px 10px;background:var(--bg);border-radius:5px;border:1px solid var(--border);white-space:pre-line">${p.notes}</div>`:""}
     </div>
   </div>`;
+}
+
+// ── TRANCHE MANAGEMENT (server-backed) ──
+async function addTranche(id) {
+  const dateStr = prompt("Entry date (YYYY-MM-DD):", today());
+  if (dateStr === null) return;
+  const price = parseFloat(prompt("Price per share:"));
+  if (!price || isNaN(price)) return alert("Valid price required.");
+  const shares = parseFloat(prompt("Shares:"));
+  if (!shares || isNaN(shares)) return alert("Valid share count required.");
+  try {
+    const res = await fetch(`${PROXY}/db/positions/${id}/tranches`, {
+      method:"POST", headers:{"Content-Type":"application/json"},
+      body:JSON.stringify({ tranche:{ date:dateStr||today(), price, shares } })
+    });
+    if (!res.ok) { const e = await res.json().catch(()=>({})); return alert("Add failed: "+(e.error||res.status)); }
+    await syncFromServer(); render();
+  } catch(e) { alert("Add failed: "+e.message); }
+}
+
+async function removeTranche(id, index) {
+  if (!confirm(`Remove tranche ${index+1}?`)) return;
+  try {
+    const res = await fetch(`${PROXY}/db/positions/${id}/tranches/${index}`, { method:"DELETE" });
+    if (!res.ok) { const e = await res.json().catch(()=>({})); return alert("Remove failed: "+(e.error||res.status)); }
+    await syncFromServer(); render();
+  } catch(e) { alert("Remove failed: "+e.message); }
 }
 
 // ── WATCHLIST VIEW ──
@@ -986,9 +1124,9 @@ function renderWatchlist() {
       <td class="r" style="font-size:11px">${fmtDate(w.pdufaDate)}</td>
       <td class="r" style="color:${d<=7?"var(--red)":d<=21?"var(--amber)":"var(--t1)"};font-weight:700;font-family:'JetBrains Mono',monospace">${d<0?"Done":d+"d"}</td>
       <td class="r mono">${price?fmt(price):"—"}</td>
-      <td class="r"><span style="font-size:13px;font-weight:800;font-family:'JetBrains Mono',monospace;color:${gapColor(gap)}">${gap!==null?(gap>=0?"+":"")+gap+"pp":"—"}</span></td>
+      <td class="r">${(() => { const band=edgeBand(gap); return `<span title="${band?band.label:""}" style="font-size:13px;font-weight:800;font-family:'JetBrains Mono',monospace;color:${band?band.color:"var(--t3)"}">${gap!==null?(gap>=0?"+":"")+gap+"pp":"—"}</span>`; })()}</td>
       <td class="r" style="color:${ev>0?"var(--green)":"var(--red)"};font-weight:700;font-family:'JetBrains Mono',monospace">${ev!==null?(ev>=0?"+":"")+ev.toFixed(1)+"%":"—"}</td>
-      <td>${entrySignal?`<span class="tag" style="background:var(--green-bg);color:var(--green)">Entry Window</span>`:`<span class="tag" style="background:var(--gray-bg);color:var(--t3)">Watch</span>`}</td>
+      <td>${engineFeed.byTicker[w.ticker]?engineBadge(w.ticker):(entrySignal?`<span class="tag" style="background:var(--green-bg);color:var(--green)">Entry Window</span>`:`<span class="tag" style="background:var(--gray-bg);color:var(--t3)">Watch</span>`)}</td>
       <td>
         <button class="btn btn-sm btn-primary" onclick="convertToPosition('${w.id}')">Enter</button>
         <button class="btn btn-sm btn-danger" onclick="markPassed('${w.id}')">Pass</button>
@@ -1071,6 +1209,39 @@ function renderCalibration(cal) {
     </div>`:""}
   </div>
 
+  ${calAnalytics ? `
+  <div class="card" style="margin-bottom:14px">
+    <div class="card-hdr"><div class="card-title">Model vs Market — Brier Scores</div>
+      <span style="font-size:10px;color:var(--t3)">lower is better · ${calAnalytics.resolved} resolved / ${calAnalytics.pending} pending</span>
+    </div>
+    <div class="cal-grid">
+      <div class="cal-stat"><div class="cal-val" style="color:${calAnalytics.brierEdge>0?"var(--green)":"var(--red)"}">${calAnalytics.modelBrier!=null?calAnalytics.modelBrier.toFixed(3):"—"}</div><div class="cal-lbl">Model Brier</div></div>
+      <div class="cal-stat"><div class="cal-val">${calAnalytics.marketBrier!=null?calAnalytics.marketBrier.toFixed(3):"—"}</div><div class="cal-lbl">Market Brier</div></div>
+      <div class="cal-stat"><div class="cal-val" style="color:${calAnalytics.brierEdge>0?"var(--green)":"var(--red)"}">${calAnalytics.brierEdge!=null?(calAnalytics.brierEdge>0?"+":"")+calAnalytics.brierEdge.toFixed(3):"—"}</div><div class="cal-lbl">Brier Edge ${calAnalytics.brierEdge>0?"(beating mkt)":calAnalytics.brierEdge<0?"(trailing)":""}</div></div>
+      <div class="cal-stat"><div class="cal-val">${calAnalytics.directionalHitRate!=null?calAnalytics.directionalHitRate+"%":"—"}</div><div class="cal-lbl">Directional Hit Rate</div></div>
+      <div class="cal-stat"><div class="cal-val" style="color:var(--blue)">${calAnalytics.positiveEdgeWinRate!=null?calAnalytics.positiveEdgeWinRate+"%":"—"}</div><div class="cal-lbl">+Edge Win Rate (${calAnalytics.positiveEdgeCalls})</div></div>
+      <div class="cal-stat"><div class="cal-val">${calAnalytics.avgModelProb!=null?calAnalytics.avgModelProb+"%":"—"}<span style="font-size:11px;color:var(--t3)"> / ${calAnalytics.avgMarketProb!=null?calAnalytics.avgMarketProb+"%":"—"}</span></div><div class="cal-lbl">Avg Model / Market</div></div>
+    </div>
+    ${calAnalytics.bins && calAnalytics.bins.length ? `<div style="padding:0 16px 14px">
+      <div style="font-size:10px;color:var(--t3);margin-bottom:8px">Calibration curve — predicted probability vs actual approval rate</div>
+      <table style="width:100%;font-size:11px"><thead><tr style="color:var(--t3)">
+        <th class="r">Bin</th><th class="r">n</th><th class="r">Predicted</th><th class="r">Actual</th><th>Calibration</th>
+      </tr></thead><tbody>
+      ${calAnalytics.bins.map(bin => {
+        const diff = (bin.actualRate!=null && bin.predictedAvg!=null) ? bin.actualRate - bin.predictedAvg : null;
+        const w = bin.actualRate!=null ? bin.actualRate : 0;
+        return `<tr>
+          <td class="r mono">${bin.range}</td>
+          <td class="r mono">${bin.n}</td>
+          <td class="r mono">${bin.predictedAvg!=null?bin.predictedAvg+"%":"—"}</td>
+          <td class="r mono" style="font-weight:700">${bin.actualRate!=null?bin.actualRate+"%":"—"}</td>
+          <td><div class="heat-bar" style="height:8px"><div class="heat-fill" style="width:${w}%;background:${diff!=null&&Math.abs(diff)<=15?"var(--green)":"var(--amber)"}"></div></div></td>
+        </tr>`;
+      }).join("")}
+      </tbody></table>
+    </div>` : ""}
+  </div>` : ""}
+
   <div class="card">
     <div class="card-hdr"><div class="card-title">Calibration Log (${APP.state.calibrationLog.length})</div></div>
     <div class="tbl-wrap">
@@ -1081,17 +1252,19 @@ function renderCalibration(cal) {
         </tr></thead>
         <tbody>
           ${APP.state.calibrationLog.map(l => {
-            const gap = l.myAssessedProb - l.marketImpliedProb;
-            const correct = (l.myAssessedProb>=50 && l.outcome==="Approved") || (l.myAssessedProb<50 && l.outcome!=="Approved");
+            const gap = (l.myAssessedProb!=null && l.marketImpliedProb!=null) ? l.myAssessedProb - l.marketImpliedProb : null;
+            const approved = isApprovedOutcome(l.outcome);
+            const correct = (l.myAssessedProb>=50) === approved;
+            const band = edgeBand(gap);
             return `<tr>
               <td class="mono" style="font-weight:700">${l.ticker}</td>
               <td class="r" style="font-size:11px">${fmtDate(l.pdufaDate)}</td>
-              <td class="r mono">${l.marketImpliedProb}%</td>
-              <td class="r mono">${l.myAssessedProb}%</td>
-              <td class="r" style="font-weight:700;font-family:'JetBrains Mono',monospace;color:${gapColor(gap)}">${gap>=0?"+":""}${gap}pp</td>
-              <td><span class="tag" style="background:${l.outcome==="Approved"?"var(--green-bg)":"var(--red-bg)"};color:${l.outcome==="Approved"?"var(--green)":"var(--red)"}">${l.outcome}</span>
+              <td class="r mono">${l.marketImpliedProb!=null?l.marketImpliedProb+"%":"—"}</td>
+              <td class="r mono">${l.myAssessedProb!=null?l.myAssessedProb+"%":"—"}</td>
+              <td class="r" style="font-weight:700;font-family:'JetBrains Mono',monospace;color:${band?band.color:"var(--t3)"}">${gap!=null?(gap>=0?"+":"")+gap+"pp":"—"}</td>
+              <td><span class="tag" style="background:${approved?"var(--green-bg)":"var(--red-bg)"};color:${approved?"var(--green)":"var(--red)"}">${outcomeLabel(l.outcome)}</span>
               ${correct?` <span style="font-size:9px;color:var(--green)">✓</span>`:` <span style="font-size:9px;color:var(--red)">✗</span>`}</td>
-              <td class="r mono" style="color:${l.stockMove>=0?"var(--green)":"var(--red)"}">${l.stockMove>=0?"+":""}${l.stockMove}%</td>
+              <td class="r mono" style="color:${l.stockMove>=0?"var(--green)":"var(--red)"}">${l.stockMove!=null?(l.stockMove>=0?"+":"")+l.stockMove+"%":"—"}</td>
               <td>${l.entered?`<span class="tag" style="background:var(--blue-bg);color:var(--blue)">Yes</span>`:`<span class="tag" style="background:var(--gray-bg);color:var(--t3)">No</span>`}</td>
             </tr>`;
           }).join("")}
@@ -1116,8 +1289,8 @@ function renderNotes() {
     <div class="note-card">
       <div class="note-meta">
         <div><span class="note-ticker">${n.ticker}</span> · ${fmtDate(n.pdufaDate)}
-          <span class="note-outcome tag" style="background:${n.outcome==="Approved"?"var(--green-bg)":"var(--red-bg)"};color:${n.outcome==="Approved"?"var(--green)":"var(--red)"}">${n.outcome}</span>
-          <span style="font-size:11px;color:${n.stockMove>=0?"var(--green)":"var(--red)"};font-weight:600;margin-left:4px">${n.stockMove>=0?"+":""}${n.stockMove}%</span>
+          <span class="note-outcome tag" style="background:${isApprovedOutcome(n.outcome)?"var(--green-bg)":"var(--red-bg)"};color:${isApprovedOutcome(n.outcome)?"var(--green)":"var(--red)"}">${outcomeLabel(n.outcome)}</span>
+          ${n.stockMove!=null?`<span style="font-size:11px;color:${n.stockMove>=0?"var(--green)":"var(--red)"};font-weight:600;margin-left:4px">${n.stockMove>=0?"+":""}${n.stockMove}%</span>`:""}
         </div>
         <span class="note-date">${fmtDate(n.date)}</span>
       </div>
@@ -1545,7 +1718,11 @@ try {
   fetchLivePrices();
   // Sync from server-side database
   syncFromServer();
+  // Trading Engine holdings + calibration analytics
+  fetchEngineFeed().then(render);
+  fetchCalibrationAnalytics().then(render);
   setInterval(fetchLivePrices, 5*60*1000);
+  setInterval(() => fetchEngineFeed().then(render), 5*60*1000);
   // Re-fetch calendar every 6 hours
   setInterval(() => fetchLiveCalendar().then(() => render()), 6*60*60*1000);
 } catch(e) {
