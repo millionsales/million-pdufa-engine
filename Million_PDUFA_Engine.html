@@ -205,17 +205,42 @@ const STORAGE_KEY = "million_pdufa_v2";
 const API_KEY = "605406f09706b1a66bc6435aad54c9ce";
 
 // Transparently attach X-API-Key to every mutating request to the proxy, so all
-// call sites (current and future) are covered without per-call wiring.
+// call sites (current and future) are covered without per-call wiring. Also
+// centrally surface a 401 on any mutating call — several callers don't check
+// res.ok, so without this an auth failure (wrong/rotated key) would silently
+// drop server-side writes while the UI looks like it saved.
 (function() {
   const _fetch = window.fetch.bind(window);
   window.fetch = (url, opts = {}) => {
     const method = (opts.method || "GET").toUpperCase();
-    if (method !== "GET" && method !== "HEAD" && typeof url === "string" && url.startsWith(PROXY)) {
+    const mutating = method !== "GET" && method !== "HEAD" && typeof url === "string" && url.startsWith(PROXY);
+    if (mutating) {
       opts = { ...opts, headers: { ...(opts.headers || {}), "X-API-Key": API_KEY } };
     }
-    return _fetch(url, opts);
+    const p = _fetch(url, opts);
+    if (mutating) p.then(r => { if (r && r.status === 401) notifyAuthError(); }).catch(() => {});
+    return p;
   };
 })();
+
+// One-time, non-blocking banner when the proxy rejects a write for auth.
+let _authErrShown = false;
+function notifyAuthError() {
+  if (_authErrShown) return;
+  _authErrShown = true;
+  console.error("Proxy returned 401 on a mutating request — API key wrong or rotated.");
+  try {
+    const bar = document.createElement("div");
+    bar.style.cssText = "position:fixed;top:0;left:0;right:0;z-index:2000;background:#b91c1c;color:#fff;font:600 12px/1.4 'Sora',sans-serif;padding:10px 16px;display:flex;justify-content:space-between;align-items:center;box-shadow:0 2px 8px rgba(0,0,0,.2)";
+    bar.innerHTML = "<span>⚠ Saves are being rejected by the server (auth key mismatch). Changes may not be persisting — verify the dashboard API key.</span>";
+    const x = document.createElement("button");
+    x.textContent = "✕";
+    x.style.cssText = "background:none;border:none;color:#fff;font-size:16px;cursor:pointer;margin-left:12px";
+    x.onclick = () => { bar.remove(); _authErrShown = false; };
+    bar.appendChild(x);
+    document.body.appendChild(bar);
+  } catch(e) { /* DOM not ready — console error already logged */ }
+}
 
 // ── STORAGE ──
 function loadData() {
@@ -910,7 +935,7 @@ function renderCalendar() {
           <th>Drug / Indication</th>
           <th class="r">PDUFA</th>
           <th class="r">Days</th>
-          <th class="r">Market%</th>
+          <th class="r" title="Top: ATM call-delta implied. Bottom (≈): straddle-implied, the preferred method.">Market%<div style="font-weight:400;text-transform:none;color:var(--t3);font-size:8px">δ / ≈straddle</div></th>
           <th class="r">Model%</th>
           <th class="r">Gap</th>
           <th class="r">EV</th>
@@ -974,7 +999,8 @@ function renderCalendar() {
             <td class="r" style="font-size:11px;color:var(--t2)">${fmtDate(e.pdufaDate)}</td>
             <td class="r" style="color:${dc};font-weight:700;font-family:'JetBrains Mono',monospace">${d<0?"Done":d===0?"Today":d+"d"}</td>
             <td class="r">
-              ${e.marketImpliedProbability!=null?`<span style="font-size:12px;font-weight:700;font-family:'JetBrains Mono',monospace;color:var(--t2)">${e.marketImpliedProbability}%</span>`:`<span style="color:var(--t3)">—</span>`}
+              ${e.marketImpliedProbability!=null?`<span title="ATM call-delta implied probability" style="font-size:12px;font-weight:700;font-family:'JetBrains Mono',monospace;color:var(--t2)">${e.marketImpliedProbability}%</span>`:`<span style="color:var(--t3)">—</span>`}
+              ${e.straddleImpliedProbability!=null?(()=>{const sb=edgeBand(e.straddleProbabilityGap,e.straddleEdge);return `<span title="Straddle-implied probability (preferred) — ${sb?sb.label:''}" style="display:block;font-size:9px;font-family:'JetBrains Mono',monospace;color:${sb?sb.color:'var(--t3)'}">≈${e.straddleImpliedProbability}%</span>`;})():""}
             </td>
             <td class="r">
               ${prob?`<span style="font-size:12px;font-weight:700;font-family:'JetBrains Mono',monospace;color:${probColor}">${prob}%</span>`:`<span style="color:var(--t3)">—</span>`}
@@ -1119,6 +1145,7 @@ function renderPositionCard(p) {
         ${o.atmIV!=null?`<span>IV: <b style="font-family:'JetBrains Mono',monospace">${Math.round(o.atmIV*100)}%</b></span>`:""}
         ${liveGap!=null?`<span>Your edge vs live: <b style="font-family:'JetBrains Mono',monospace;color:${lb?lb.color:"var(--t1)"}">${liveGap>=0?"+":""}${liveGap}pp</b></span>`:""}
         ${o.optionExpiration?`<span style="color:var(--t3)">exp ${o.optionExpiration}</span>`:""}
+        ${optionsImpliedAsOf?`<span style="color:var(--t3)" title="Live options fetched ${new Date(optionsImpliedAsOf).toLocaleString()}">as of ${new Date(optionsImpliedAsOf).toLocaleTimeString("en-US",{hour:"2-digit",minute:"2-digit"})}</span>`:""}
       </div>`;
     })()}
     <div style="padding:12px 16px">
