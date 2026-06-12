@@ -182,9 +182,12 @@ textarea{resize:vertical;min-height:72px}
   .main{padding:14px 14px 72px;overflow-y:auto}
   .metrics{grid-template-columns:1fr 1fr}
   .form-grid{grid-template-columns:1fr}
-  .thead,.row-main{grid-template-columns:80px 1fr 70px 80px}
-  .thead>.th:nth-child(n+5),.row-main>div:nth-child(n+5){display:none}
+  .cal-grid{grid-template-columns:1fr 1fr}
+  .page-hdr{flex-wrap:wrap;gap:8px}
+  .mnav-btn{min-width:38px;font-size:7px}
 }
+/* AdCom emoji nav item keeps 7 tabs fitting on small screens */
+@media(max-width:380px){ .mnav-btn{min-width:32px} .mnav-icon{font-size:14px} }
 </style>
 </head>
 <body>
@@ -262,7 +265,8 @@ const DEFAULT_STATE = {
   ],
   resolutionNotes: [
     { id:"grce-note", ticker:"GRCE", pdufaDate:"2026-04-23", outcome:"CRL", stockMove:-49, date:"2026-04-23", gotRight:"Sized appropriately at $500 max. Stop loss pre-set.", missed:"Underweighted manufacturing risk for novel IV formulation.", wouldDo:"Would not enter 505(b)(2) reformulations with thin cash runway under $25M.", framework:"Add cash runway filter: minimum $50M for binary events." }
-  ]
+  ],
+  adcom: []
 };
 
 // ── LIVE DATA ──
@@ -324,16 +328,23 @@ async function fetchLiveCalendar(attempt=1) {
 // ── TRADING ENGINE FEED + CALIBRATION ANALYTICS ──
 // Read-only feeds from the proxy. Both degrade silently when unavailable.
 let engineFeed = { available:false, positions:[], byTicker:{}, netValue:null, savedAt:null };
+let optionsImplied = {};      // ticker → live CBOE straddle/delta implied prob + IV
+let optionsImpliedAsOf = null;
 let calAnalytics = null;
 
+// /engine/feed gives the Trading Engine portfolio AND live options-implied
+// probabilities for active positions in one call (both server-cached).
 async function fetchEngineFeed() {
   try {
-    const res = await fetch(`${PROXY}/engine/positions`);
+    const res = await fetch(`${PROXY}/engine/feed`);
     const data = await res.json();
-    if (data.engineAvailable) {
+    optionsImplied = data.optionsImplied || {};
+    optionsImpliedAsOf = data.optionsImpliedAsOf || null;
+    const pf = data.portfolio;
+    if (data.engineAvailable && pf && Array.isArray(pf.positions)) {
       const byTicker = {};
-      (data.positions||[]).forEach(p => { byTicker[p.sym] = p; });
-      engineFeed = { available:true, positions:data.positions||[], byTicker, netValue:data.netValue, savedAt:data.savedAt };
+      pf.positions.forEach(p => { byTicker[p.sym] = p; });
+      engineFeed = { available:true, positions:pf.positions, byTicker, netValue:pf.netValue, savedAt:pf.savedAt };
     } else {
       engineFeed = { available:false, positions:[], byTicker:{}, netValue:null, savedAt:null };
     }
@@ -363,6 +374,7 @@ async function syncFromServer() {
       APP.state.watchlist = data.watchlist || [];
       APP.state.calibrationLog = data.calibration || [];
       APP.state.resolutionNotes = data.notes || [];
+      APP.state.adcom = data.adcom || [];
       dbSynced = true;
       // If server is empty, migrate localStorage
       if (data.stats.positions === 0 && data.stats.watchlist === 0) {
@@ -402,7 +414,13 @@ async function savePosition(existingId) {
   const pdufaDate = g("f-pdufa")?.value;
   if (!pdufaDate) return alert("PDUFA date is required");
 
-  const tranches = [0,1,2].map(i => ({
+  const existing = existingId ? APP.state.positions.find(p=>p.id===existingId) : null;
+
+  // Tranches: on a NEW position read the 3-slot entry grid. On EDIT, the modal no
+  // longer shows the tranche grid (tranches are managed inline on the card with
+  // unlimited add/remove), so preserve the existing tranches untouched — reading
+  // the (absent) grid here would silently truncate to 3 and wipe extras.
+  const tranches = existing ? existing.tranches : [0,1,2].map(i => ({
     date: g(`f-t${i}-date`)?.value || "",
     price: g(`f-t${i}-price`)?.value || "",
     shares: g(`f-t${i}-shares`)?.value || "",
@@ -422,15 +440,17 @@ async function savePosition(existingId) {
     downside: parseFloat(g("f-down")?.value) || null,
     stopLoss: parseFloat(g("f-stop")?.value) || null,
     currentPrice: parseFloat(g("f-cur")?.value) || livePrices[ticker] || null,
-    status: "active",
+    // Preserve status + exit fields on edit; default for new.
+    status: existing ? existing.status : "active",
     tranches,
     notes: g("f-notes")?.value || "",
-    exitDate:"", exitPrice:"", exitTrigger:"", realizedPnl:""
+    exitDate: existing?.exitDate || "", exitPrice: existing?.exitPrice ?? "",
+    exitTrigger: existing?.exitTrigger || "", realizedPnl: existing?.realizedPnl ?? ""
   };
 
-  if (existingId) {
+  if (existing) {
     const idx = APP.state.positions.findIndex(p=>p.id===existingId);
-    if (idx>=0) { pos.status = APP.state.positions[idx].status; APP.state.positions[idx] = pos; }
+    if (idx>=0) APP.state.positions[idx] = pos;
   } else {
     APP.state.positions.push(pos);
   }
@@ -642,7 +662,20 @@ function exportCSV(type) {
     filename = "pdufa_calibration.csv";
     rows.push(["Ticker","PDUFA Date","Market Implied %","My Assessed %","Gap","Outcome","Stock Move %","Entered","Notes"]);
     APP.state.calibrationLog.forEach(l => {
-      rows.push([l.ticker,l.pdufaDate,l.marketImpliedProb,l.myAssessedProb,(l.myAssessedProb-l.marketImpliedProb).toFixed(1),l.outcome,l.stockMove,l.entered?"Yes":"No",l.notes]);
+      const gap = (l.myAssessedProb!=null&&l.marketImpliedProb!=null)?(l.myAssessedProb-l.marketImpliedProb).toFixed(1):"";
+      rows.push([l.ticker,l.pdufaDate,l.marketImpliedProb,l.myAssessedProb,gap,l.outcome,l.stockMove,l.entered?"Yes":"No",l.notes]);
+    });
+  } else if (type === "notes") {
+    filename = "pdufa_resolution_notes.csv";
+    rows.push(["Ticker","PDUFA Date","Outcome","Stock Move %","Date","Got Right","Missed","Would Do Differently","Framework Update"]);
+    APP.state.resolutionNotes.forEach(n => {
+      rows.push([n.ticker,n.pdufaDate,n.outcome,n.stockMove,n.date,n.gotRight,n.missed,n.wouldDo,n.framework]);
+    });
+  } else if (type === "adcom") {
+    filename = "pdufa_adcom.csv";
+    rows.push(["Ticker","Company","Drug","Indication","Committee","Meeting Date","Related PDUFA","Outcome","Vote","Notes"]);
+    (APP.state.adcom||[]).forEach(a => {
+      rows.push([a.ticker,a.company,a.drug,a.indication,a.committee,a.meetingDate,a.pdufaDate,a.outcome,a.vote,a.notes]);
     });
   }
   const csv = rows.map(r => r.map(c => `"${String(c||"").replace(/"/g,'""')}"`).join(",")).join("\n");
@@ -667,6 +700,7 @@ function render() {
     {k:"calendar",i:"📅",l:"Calendar"},
     {k:"positions",i:"💼",l:"Positions"},
     {k:"watchlist",i:"👁",l:"Watchlist"},
+    {k:"adcom",i:"⚖️",l:"AdCom"},
     {k:"calibration",i:"🎯",l:"Calibration"},
     {k:"notes",i:"📝",l:"Notes"},
     {k:"ai",i:"🤖",l:"AI"},
@@ -690,7 +724,7 @@ function render() {
     <div class="sb-brand">
       <div class="sb-mark">M</div>
       <div class="sb-title">Million PDUFA</div>
-      <div class="sb-sub">Engine v2.1</div>
+      <div class="sb-sub">Engine v2.2</div>
     </div>
     <div class="sb-nav">
       <div class="sb-section">Strategy</div>
@@ -729,6 +763,7 @@ function render() {
   if (APP.view === "calendar") html += renderCalendar();
   else if (APP.view === "positions") html += renderPositions();
   else if (APP.view === "watchlist") html += renderWatchlist();
+  else if (APP.view === "adcom") html += renderAdcom();
   else if (APP.view === "calibration") html += renderCalibration(cal);
   else if (APP.view === "notes") html += renderNotes();
   else if (APP.view === "ai") html += renderAI();
@@ -1050,6 +1085,23 @@ function renderPositionCard(p) {
         <div style="font-size:10px;color:var(--t3);margin-top:2px">${m.hint}</div>
       </div>`).join("")}
     </div>
+    ${(() => {
+      // Live options-implied probability strip (CBOE, via Trading Engine feed).
+      const o = optionsImplied[p.ticker];
+      if (!o) return "";
+      const yourProb = p.myAssessedProb;
+      const liveGap = (yourProb != null && o.straddleImpliedProbability != null) ? yourProb - o.straddleImpliedProbability : null;
+      const lb = liveGap != null ? edgeBand(liveGap) : null;
+      return `<div style="display:flex;gap:16px;flex-wrap:wrap;align-items:center;padding:8px 16px;background:#fafbfc;border-bottom:1px solid var(--border-light);font-size:10px;color:var(--t2)">
+        <span style="font-size:8px;font-weight:700;color:var(--t3);text-transform:uppercase;letter-spacing:.08em">Live options (CBOE)</span>
+        ${o.straddleImpliedProbability!=null?`<span>Straddle-implied: <b style="font-family:'JetBrains Mono',monospace;color:var(--t1)">${o.straddleImpliedProbability}%</b></span>`:""}
+        ${o.marketImpliedProbability!=null?`<span>ATM-delta: <b style="font-family:'JetBrains Mono',monospace;color:var(--t1)">${o.marketImpliedProbability}%</b></span>`:""}
+        ${o.expectedMovePct!=null?`<span>Exp move: <b style="font-family:'JetBrains Mono',monospace">±${o.expectedMovePct}%</b></span>`:""}
+        ${o.atmIV!=null?`<span>IV: <b style="font-family:'JetBrains Mono',monospace">${Math.round(o.atmIV*100)}%</b></span>`:""}
+        ${liveGap!=null?`<span>Your edge vs live: <b style="font-family:'JetBrains Mono',monospace;color:${lb?lb.color:"var(--t1)"}">${liveGap>=0?"+":""}${liveGap}pp</b></span>`:""}
+        ${o.optionExpiration?`<span style="color:var(--t3)">exp ${o.optionExpiration}</span>`:""}
+      </div>`;
+    })()}
     <div style="padding:12px 16px">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
         <div style="font-size:9px;font-weight:600;color:var(--t3);text-transform:uppercase;letter-spacing:.08em">Tranches${ts?` · ${ts.count}`:""}</div>
@@ -1282,6 +1334,7 @@ function renderNotes() {
   <div class="page-hdr">
     <div><div class="page-title">Resolution Notes</div><div class="page-sub">Post-trade analysis — how the strategy improves</div></div>
     <div class="hdr-actions">
+      <button class="btn btn-sm" onclick="exportCSV('notes')">↓ Export CSV</button>
       <button class="btn btn-sm btn-primary" onclick="openModal('addNote')">+ Add Note</button>
     </div>
   </div>
@@ -1303,6 +1356,96 @@ function renderNotes() {
     </div>
   `).join("")}
   ${notes.length===0?`<div class="card"><div class="empty"><div class="empty-icon">📝</div>No resolution notes yet. Add your first after a PDUFA resolves.</div></div>`:""}`;
+}
+
+// ── ADCOM VIEW ──
+const ADCOM_OUTCOME = {
+  positive: { l:"Positive", c:"var(--green)", bg:"var(--green-bg)" },
+  negative: { l:"Negative", c:"var(--red)", bg:"var(--red-bg)" },
+  mixed:    { l:"Mixed",    c:"var(--amber)", bg:"var(--amber-bg)" }
+};
+
+function renderAdcom() {
+  const list = (APP.state.adcom || []).slice().sort((a,b)=>(a.meetingDate||"").localeCompare(b.meetingDate||""));
+  const upcoming = list.filter(a => !a.meetingDate || a.meetingDate >= today());
+  const past = list.filter(a => a.meetingDate && a.meetingDate < today());
+
+  const row = (a) => {
+    const d = a.meetingDate ? getDays(a.meetingDate) : null;
+    const oc = a.outcome ? ADCOM_OUTCOME[String(a.outcome).toLowerCase()] : null;
+    const held = engineFeed.byTicker[a.ticker];
+    return `<tr>
+      <td class="r" style="font-size:11px">${a.meetingDate?fmtDate(a.meetingDate):"—"}</td>
+      <td class="r" style="font-weight:700;font-family:'JetBrains Mono',monospace;color:${d==null?"var(--t3)":d<0?"var(--t3)":d<=14?"var(--red)":d<=45?"var(--amber)":"var(--t1)"}">${d==null?"—":d<0?"Held":d===0?"Today":d+"d"}</td>
+      <td><span class="mono" style="font-weight:700">${a.ticker||"—"}</span>${held?` ${engineBadge(a.ticker)}`:""}<div style="font-size:10px;color:var(--t3)">${a.company||""}</div></td>
+      <td><div style="font-weight:500;font-size:12px">${a.drug||"—"}</div><div style="font-size:10px;color:var(--t3)">${a.indication||""}</div></td>
+      <td><span class="tag" style="background:var(--purple-bg);color:var(--purple)">${a.committee||"—"}</span></td>
+      <td class="r" style="font-size:11px;color:var(--t2)">${a.pdufaDate?fmtDate(a.pdufaDate):"—"}</td>
+      <td>${oc?`<span class="tag" style="background:${oc.bg};color:${oc.c}">${oc.l}</span>`:`<span class="tag" style="background:var(--gray-bg);color:var(--t3)">Pending</span>`}${a.vote?`<div style="font-size:10px;color:var(--t3);margin-top:2px">${a.vote}</div>`:""}</td>
+      <td>
+        <button class="btn btn-sm" onclick="openModal('editAdcom','${a.id}')">Edit</button>
+        <button class="btn btn-sm btn-danger" onclick="deleteAdcom('${a.id}')">Del</button>
+      </td>
+    </tr>`;
+  };
+
+  const tbl = (rows, label, emptyMsg) => `
+    <div class="card" style="margin-bottom:14px">
+      <div class="card-hdr"><div class="card-title">${label}</div></div>
+      <div class="tbl-wrap"><table>
+        <thead><tr>
+          <th class="r">Date</th><th class="r">Days</th><th>Ticker</th><th>Drug / Indication</th>
+          <th>Committee</th><th class="r">Related PDUFA</th><th>Outcome / Vote</th><th>Action</th>
+        </tr></thead>
+        <tbody>
+          ${rows.length?rows.map(row).join(""):`<tr><td colspan="8"><div class="empty"><div class="empty-icon">⚖️</div>${emptyMsg}</div></td></tr>`}
+        </tbody>
+      </table></div>
+    </div>`;
+
+  return `
+  <div class="page-hdr">
+    <div><div class="page-title">Advisory Committee Calendar</div><div class="page-sub">FDA AdCom meetings — a panel vote often moves the stock more than the PDUFA itself</div></div>
+    <div class="hdr-actions">
+      <button class="btn btn-sm" onclick="exportCSV('adcom')">↓ Export CSV</button>
+      <button class="btn btn-sm btn-primary" onclick="openModal('addAdcom')">+ Add Meeting</button>
+    </div>
+  </div>
+  <div style="font-size:10px;color:var(--t3);margin-bottom:12px;padding:8px 10px;background:var(--blue-bg);border-radius:6px">
+    No free FDA AdCom API exists, so meetings are entered manually. Seeded with the FDA's published ODAC meeting as a reference — add the ones relevant to your catalysts.
+  </div>
+  ${tbl(upcoming, `Upcoming (${upcoming.length})`, "No upcoming AdCom meetings logged")}
+  ${tbl(past, `Past (${past.length})`, "No past AdCom meetings logged")}`;
+}
+
+async function saveAdcom() {
+  const g = id => document.getElementById(id);
+  const id = APP.editId || null;
+  const ticker = g("af-ticker")?.value?.trim().toUpperCase() || "";
+  const meetingDate = g("af-date")?.value || "";
+  if (!meetingDate) return alert("Meeting date is required");
+  const rec = {
+    id: id || `adcom-${(ticker||"x").toLowerCase()}-${Date.now()}`,
+    ticker, company: g("af-company")?.value||"", drug: g("af-drug")?.value||"",
+    indication: g("af-indication")?.value||"", committee: g("af-committee")?.value||"",
+    meetingDate, pdufaDate: g("af-pdufa")?.value||"",
+    outcome: g("af-outcome")?.value||"", vote: g("af-vote")?.value||"",
+    notes: g("af-notes")?.value||""
+  };
+  try {
+    await fetch(`${PROXY}/db/adcom`, { method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify(rec) });
+    await syncFromServer();
+  } catch(e) { alert("Save failed: "+e.message); }
+  closeModal(); render();
+}
+
+async function deleteAdcom(id) {
+  if (!confirm("Delete this AdCom meeting?")) return;
+  try {
+    await fetch(`${PROXY}/db/adcom/${id}`, { method:"DELETE" });
+    await syncFromServer();
+  } catch(e) { alert("Delete failed: "+e.message); }
+  render();
 }
 
 // ── AI VIEW ──
@@ -1356,7 +1499,14 @@ async function submitAI() {
 // ── MODALS ──
 function openModal(type, data) {
   APP.modal = type;
-  APP.modalData = data || null;
+  // A string arg is a record id (edit/close); an object is prefill data (new from calendar).
+  if (typeof data === "string") {
+    APP.editId = data;
+    APP.modalData = null;
+  } else {
+    APP.modalData = data || null;
+    APP.editId = null;
+  }
   render();
 }
 function closeModal() { APP.modal = null; APP.modalData = null; render(); }
@@ -1406,7 +1556,13 @@ function renderModal() {
         <div class="form-group"><label>Current Price</label><input type="number" id="f-cur" value="${p.currentPrice||livePrices[p.ticker||prefill.ticker||""]||""}"/></div>
       </div>
 
-      <div style="margin:14px 0 8px"><div style="font-size:10px;font-weight:600;color:var(--t2);text-transform:uppercase;letter-spacing:.06em">Tranches (up to 3)</div></div>
+      ${existing ? `
+      <div style="margin:14px 0 8px"><div style="font-size:10px;font-weight:600;color:var(--t2);text-transform:uppercase;letter-spacing:.06em">Tranches</div></div>
+      <div style="font-size:11px;color:var(--t2);padding:8px 10px;background:var(--bg);border:1px solid var(--border);border-radius:6px">
+        ${(existing.tranches||[]).filter(t=>t.price&&t.shares).length} tranche(s) on this position — add or remove them from the position card's tranche controls. Editing here leaves them unchanged.
+      </div>
+      ` : `
+      <div style="margin:14px 0 8px"><div style="font-size:10px;font-weight:600;color:var(--t2);text-transform:uppercase;letter-spacing:.06em">Tranches (up to 3 — add more later from the card)</div></div>
       ${[0,1,2].map(i => {
         const t = (p.tranches||[])[i] || {};
         return `<div class="tranche-row">
@@ -1416,6 +1572,7 @@ function renderModal() {
           <div style="font-size:10px;color:var(--t3);padding-bottom:8px">${t.price&&t.shares?fmt(parseFloat(t.price)*parseFloat(t.shares)):""}</div>
         </div>`;
       }).join("")}
+      `}
 
       <div class="form-group" style="margin-top:4px">
         <label>Notes / Thesis</label>
@@ -1523,6 +1680,39 @@ function renderModal() {
     </div>`;
   }
 
+  else if (type === "addAdcom" || type === "editAdcom") {
+    const a = (type === "editAdcom" ? (APP.state.adcom||[]).find(x=>x.id===APP.editId) : null) || {};
+    const committees = ["ODAC","CRDAC","PADAC","PCNS","AADPAC","EMDAC"," DSaRM","GUDAC","BPAC","VRBPAC","Other"];
+    const sel = (cur, opts) => opts.map(o=>`<option ${String(cur||"").trim()===o.trim()?"selected":""}>${o.trim()}</option>`).join("");
+    content = `
+    <div class="modal-hdr"><div class="modal-title">${a.id?"Edit":"Add"} AdCom Meeting</div><button class="modal-close" onclick="closeModal()">×</button></div>
+    <div class="modal-body">
+      <div class="form-grid">
+        <div class="form-group"><label>Ticker</label><input id="af-ticker" value="${a.ticker||""}"/></div>
+        <div class="form-group"><label>Company</label><input id="af-company" value="${a.company||""}"/></div>
+        <div class="form-group"><label>Drug</label><input id="af-drug" value="${a.drug||""}"/></div>
+        <div class="form-group"><label>Indication</label><input id="af-indication" value="${a.indication||""}"/></div>
+        <div class="form-group"><label>Committee</label><select id="af-committee">${sel(a.committee, committees)}</select></div>
+        <div class="form-group"><label>Meeting Date *</label><input type="date" id="af-date" value="${a.meetingDate||""}"/></div>
+        <div class="form-group"><label>Related PDUFA Date</label><input type="date" id="af-pdufa" value="${a.pdufaDate||""}"/></div>
+        <div class="form-group"><label>Outcome</label>
+          <select id="af-outcome">
+            <option value="" ${!a.outcome?"selected":""}>Pending</option>
+            <option value="positive" ${a.outcome==="positive"?"selected":""}>Positive (favorable vote)</option>
+            <option value="negative" ${a.outcome==="negative"?"selected":""}>Negative (unfavorable)</option>
+            <option value="mixed" ${a.outcome==="mixed"?"selected":""}>Mixed</option>
+          </select>
+        </div>
+        <div class="form-group full"><label>Vote / Result (free text)</label><input id="af-vote" value="${(a.vote||"").replace(/"/g,'&quot;')}" placeholder="e.g. 11-2 favorable on efficacy"/></div>
+        <div class="form-group full"><label>Notes</label><textarea id="af-notes">${a.notes||""}</textarea></div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn" onclick="closeModal()">Cancel</button>
+      <button class="btn btn-primary" onclick="saveAdcom()">${a.id?"Update":"Add Meeting"}</button>
+    </div>`;
+  }
+
   return `<div class="modal-overlay" onclick="if(event.target.classList.contains('modal-overlay'))closeModal()"><div class="modal">${content}</div></div>`;
 }
 
@@ -1549,14 +1739,45 @@ function updateEVPreview() {
 
 // savePosition is defined above as async function with server sync
 
-function closePosition(id) {
+async function closePosition(id) {
   const g = document.getElementById.bind(document);
   const p = APP.state.positions.find(p=>p.id===id);
   if (!p) return;
-  p.exitDate = g("f-exit-date")?.value || today();
-  p.exitPrice = parseFloat(g("f-exit-price")?.value) || "";
-  p.exitTrigger = g("f-exit-trigger")?.value || "";
+  const exitDate = g("f-exit-date")?.value || today();
+  const exitPrice = parseFloat(g("f-exit-price")?.value);
+  const exitTrigger = g("f-exit-trigger")?.value || "";
+  const exitNotes = g("f-exit-notes")?.value || "";
+
+  // Map exit trigger → binary PDUFA outcome. Only an actual approval/CRL is a
+  // resolved binary outcome that should feed the calibration tracker; stop-loss,
+  // run-up exits, and thesis changes are discretionary exits, not catalyst results.
+  const outcome = /approval/i.test(exitTrigger) ? "approved"
+                : /crl|rejection/i.test(exitTrigger) ? "crl"
+                : null;
+
+  if (outcome) {
+    // Use the server resolve workflow → auto-writes calibration + note stub.
+    try {
+      const res = await fetch(`${PROXY}/db/positions/${id}/resolve`, {
+        method:"POST", headers:{"Content-Type":"application/json"},
+        body:JSON.stringify({ outcome, exitPrice: isNaN(exitPrice)?undefined:exitPrice, exitDate, exitTrigger, notes: exitNotes })
+      });
+      if (!res.ok) { const e = await res.json().catch(()=>({})); throw new Error(e.error||res.status); }
+      await syncFromServer();
+      await fetchCalibrationAnalytics();
+      closeModal(); render();
+      return;
+    } catch(e) {
+      alert("Resolve failed (closing locally instead): "+e.message);
+    }
+  }
+
+  // Non-resolution exit (or resolve failed): close locally + sync.
+  p.exitDate = exitDate;
+  p.exitPrice = isNaN(exitPrice) ? "" : exitPrice;
+  p.exitTrigger = exitTrigger;
   p.status = "closed";
+  if (exitNotes) p.notes = p.notes ? `${p.notes}\n${exitNotes}` : exitNotes;
   const b = calcBlended(p.tranches);
   if (b && p.exitPrice) p.realizedPnl = ((parseFloat(p.exitPrice)-b.avgPrice)*b.totalShares).toFixed(2);
   save(); closeModal(); render();
