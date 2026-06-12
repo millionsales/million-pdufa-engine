@@ -198,6 +198,25 @@ textarea{resize:vertical;min-height:72px}
 const PROXY = "https://proxy.millionsales.net";
 const STORAGE_KEY = "million_pdufa_v2";
 
+// Shared secret for mutating requests (POST/PUT/PATCH/DELETE → X-API-Key header).
+// Must match DASHBOARD_API_KEY in the proxy's .env. This is embedded in a public
+// static page, so treat it as obfuscation, not a true secret — it blocks drive-by
+// writes/scrapes, not someone reading this source. Rotate here + in the VPS .env.
+const API_KEY = "605406f09706b1a66bc6435aad54c9ce";
+
+// Transparently attach X-API-Key to every mutating request to the proxy, so all
+// call sites (current and future) are covered without per-call wiring.
+(function() {
+  const _fetch = window.fetch.bind(window);
+  window.fetch = (url, opts = {}) => {
+    const method = (opts.method || "GET").toUpperCase();
+    if (method !== "GET" && method !== "HEAD" && typeof url === "string" && url.startsWith(PROXY)) {
+      opts = { ...opts, headers: { ...(opts.headers || {}), "X-API-Key": API_KEY } };
+    }
+    return _fetch(url, opts);
+  };
+})();
+
 // ── STORAGE ──
 function loadData() {
   try {
@@ -724,7 +743,7 @@ function render() {
     <div class="sb-brand">
       <div class="sb-mark">M</div>
       <div class="sb-title">Million PDUFA</div>
-      <div class="sb-sub">Engine v2.2</div>
+      <div class="sb-sub">Engine v2.3</div>
     </div>
     <div class="sb-nav">
       <div class="sb-section">Strategy</div>
