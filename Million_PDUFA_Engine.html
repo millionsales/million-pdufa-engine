@@ -768,7 +768,7 @@ function render() {
     <div class="sb-brand">
       <div class="sb-mark">M</div>
       <div class="sb-title">Million PDUFA</div>
-      <div class="sb-sub">Engine v2.3</div>
+      <div class="sb-sub">Engine v2.4</div>
     </div>
     <div class="sb-nav">
       <div class="sb-section">Strategy</div>
@@ -780,13 +780,9 @@ function render() {
     <div class="sb-status">
       <div class="sb-status-row"><div class="sdot ${proxyOk?"ok":"err"}"></div>${proxyOk?"Proxy live":"Proxy offline"}</div>
       <div class="sb-status-row"><div class="sdot ${pricesLoaded?"ok":"loading"}"></div>Prices ${pricesLoaded?lastUpdate:"loading"}</div>
-      <div class="sb-status-row" id="etrade-status-row" style="cursor:pointer" onclick="etradeAuth()">
-        <div class="sdot" id="etrade-dot" style="background:var(--t3)"></div>
-        <span id="etrade-label">E*TRADE —</span>
-      </div>
-      <div class="sb-status-row" title="${engineFeed.available?`Net value ${fmt(engineFeed.netValue)} · as of ${engineFeed.savedAt?new Date(engineFeed.savedAt).toLocaleTimeString("en-US",{hour:"2-digit",minute:"2-digit"}):"—"}`:"Trading Engine feed unavailable"}>
+      <div class="sb-status-row" style="cursor:pointer" onclick="refreshEngineFeed()" title="${engineFeed.available?`Live portfolio from the Million Trading Engine · ${engineFeed.positions.length} holdings · as of ${engineFeed.savedAt?new Date(engineFeed.savedAt).toLocaleString():"—"} · click to refresh`:"Trading Engine portfolio feed unavailable"}>
         <div class="sdot ${engineFeed.available?"ok":"err"}"></div>
-        ${engineFeed.available?`Engine sync · ${engineFeed.positions.length} held`:"Engine offline"}
+        ${engineFeed.available?`Engine portfolio · ${fmt(engineFeed.netValue)}` : "Engine portfolio offline"}
       </div>
     </div>
   </div>
@@ -1906,78 +1902,16 @@ function saveNote() {
 // ── ACTIONS ──
 function setView(v) { APP.view=v; render(); }
 
-// ── ETRADE INTEGRATION ──
-let etradeAuthorized = false;
-let etradeAuthUrl = null;
-
-async function checkEtradeStatus() {
-  try {
-    const res = await fetch(`${PROXY}/etrade/status`);
-    const data = await res.json();
-    etradeAuthorized = data.authorized;
-    const dot = document.getElementById('etrade-dot');
-    const label = document.getElementById('etrade-label');
-    if (dot && label) {
-      dot.style.background = etradeAuthorized ? 'var(--green)' : 'var(--amber)';
-      label.textContent = etradeAuthorized ? 'E*TRADE Live' : 'E*TRADE — tap to connect';
-    }
-  } catch(e) {}
+// ── PORTFOLIO via TRADING ENGINE ──
+// The dashboard no longer runs its own E*TRADE OAuth. The Million Trading Engine
+// owns the E*TRADE session and is the single source of truth for live portfolio
+// data; the proxy reads its persisted portfolio (engine_feed.js → /engine/feed).
+// This just lets the user force a refresh of that feed.
+async function refreshEngineFeed() {
+  await fetchEngineFeed();
+  render();
 }
 
-async function etradeAuth() {
-  if (etradeAuthorized) {
-    // Already authorized — trigger a manual sync
-    try {
-      const res = await fetch(`${PROXY}/etrade/sync`, { method: 'POST' });
-      const data = await res.json().catch(()=>({}));
-      if (!res.ok || data.error) {
-        const isTokenExpired = /token_expired|oauth_problem/i.test(data.error||"");
-        if (isTokenExpired) {
-          etradeAuthorized = false;
-          checkEtradeStatus();
-          alert('E*TRADE token expired (resets midnight ET). Tap "E*TRADE —" again to re-authorize.');
-        } else {
-          alert('Sync failed: ' + (data.error || `HTTP ${res.status}`));
-        }
-        return;
-      }
-      const count = data.synced ?? data.count ?? data.positions?.length ?? 0;
-      alert(`Synced ${count} positions from E*TRADE` + (data.updates?.length ? `\n${data.updates.join("\n")}` : ""));
-      syncFromServer();
-    } catch(e) { alert('Sync failed: ' + e.message); }
-    return;
-  }
-  // Not authorized — start OAuth flow
-  try {
-    const res = await fetch(`${PROXY}/etrade/auth`);
-    const data = await res.json();
-    etradeAuthUrl = data.authUrl;
-    // Open auth URL in new tab
-    window.open(data.authUrl, '_blank');
-    // Prompt for verifier code
-    setTimeout(() => {
-      const code = prompt('Enter the E*TRADE verifier code shown after login:');
-      if (!code) return;
-      fetch(`${PROXY}/etrade/authorize`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ verifier: code.trim() })
-      }).then(r => r.json()).then(d => {
-        if (d.success) {
-          etradeAuthorized = true;
-          checkEtradeStatus();
-          alert('E*TRADE connected! Positions will sync every 15 minutes during market hours.');
-        } else {
-          alert('Authorization failed: ' + (d.error || 'Unknown error'));
-        }
-      });
-    }, 2000);
-  } catch(e) { alert('Auth failed: ' + e.message); }
-}
-
-// Check E*TRADE status on load and every 5 minutes
-checkEtradeStatus();
-setInterval(checkEtradeStatus, 5 * 60 * 1000);
 try {
   render();
   // Fetch calendar first, then re-render with full data
